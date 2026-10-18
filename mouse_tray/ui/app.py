@@ -26,6 +26,7 @@ from ..config import config as default_config
 from ..diagnostics import log_startup_diagnostics
 from ..drivers import MouseDriver, detect_all_drivers
 from ..logging_setup import setup_logging
+from .devnotify import DeviceChangeWatcher
 from .icons import IconRenderer, tray_icon_size
 from .tray import MouseChoice, TrayIcon
 
@@ -114,6 +115,15 @@ class TrayApp(wx.Frame):
         self._wakeup = threading.Event()
         self._worker = threading.Thread(target=self._poll_loop, daemon=True)
         self._worker.start()
+
+        # Hot-plug: a cable or dongle coming or going re-polls at once instead
+        # of waiting out the poll interval. Optional -- without it the loop
+        # still catches up on its next tick.
+        self._devices: DeviceChangeWatcher | None = None
+        try:
+            self._devices = DeviceChangeWatcher(self, self._wake)
+        except (OSError, AttributeError) as exc:
+            log.warning("Device change notifications unavailable: %s", exc)
 
     # --- polling thread -----------------------------------------------------
 
@@ -419,6 +429,8 @@ class TrayApp(wx.Frame):
         self._stop.set()
         self._wakeup.set()
         self._stop_animation()
+        if self._devices is not None:
+            self._devices.close()
         self.tray.RemoveIcon()
         self.tray.Destroy()
         self.Destroy()

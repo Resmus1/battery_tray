@@ -269,6 +269,11 @@ device index and feature indices on the first read). The interval is `poll_rate`
 reaction matters. The worker touches widgets only through `wx.CallAfter`, so all
 UI work stays on the main thread.
 
+The interval is not the only trigger: the hidden frame also listens for
+`WM_DEVICECHANGE` (`ui/devnotify.py`), so a cable plugged into the mouse or a
+dongle inserted or removed re-polls within about a second whatever the interval
+is set to. A left click on the tray icon forces a re-poll too.
+
 ### Which mouse is shown
 
 All connected mice are detected; only one is read. With no pin the worker takes
@@ -328,6 +333,7 @@ mouse_tray/
     icons.py            tray icon rendering (PIL digits + SVG battery)
     tray.py             TaskBarIcon wrapper
     settings.py         settings dialog
+    devnotify.py        WM_DEVICECHANGE hook: re-poll on hot-plug
     about.py            about dialog (model table from the registry)
     app.py              wx app + the single state machine
   icons/                bundled .ico assets

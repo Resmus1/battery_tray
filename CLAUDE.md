@@ -78,7 +78,10 @@ The layering is deliberately strict — respect it when adding code:
   enumeration) so a mouse plugged in later appears on its own. Driver objects are
   reused across sweeps, keyed by `key`, because they cache per-device state.
   `detect_all()`/`read_status()` **must never raise** for an absent device or I/O
-  hiccup; return an empty list / `BatteryStatus.absent()`.
+  hiccup; return an empty list / `BatteryStatus.absent()`. Between ticks the
+  worker sleeps the full `poll_rate`; hot-plug (cable, dongle) wakes it early
+  via `WM_DEVICECHANGE` ([`ui/devnotify.py`](mouse_tray/ui/devnotify.py)), as
+  does a left click on the icon.
 - **Which mouse the tray shows:** all connected mice are detected, only one is
   read. With no pin the worker picks the first that reports `present` and sticks
   to it (`_auto_key`) — so a plugged dongle whose mouse is off doesn't shadow a

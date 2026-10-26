@@ -1,5 +1,5 @@
 [project]
-name = "mouse-tray-charge"
+name = "battery-tray"
 version = "0.1.0"
 description = "Universal wireless-mouse battery indicator in the Windows system tray"
 readme = "README.md"
@@ -16,14 +16,14 @@ build = [
 ]
 
 [project.scripts]
-mouse-tray-charge = "mouse_tray:run"
+battery-tray = "battery_tray:run"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["mouse_tray"]
+packages = ["battery_tray"]
 
 [tool.ruff]
 # The codebase reads wide on purpose (HID offset tables, log calls); 110 is the
@@ -63,4 +63,4 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 # The Russian UI table is Cyrillic on purpose; RUF001 reads it as look-alike Latin.
-"mouse_tray/i18n.py" = ["RUF001"]
+"battery_tray/i18n.py" = ["RUF001"]

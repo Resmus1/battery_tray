@@ -14,7 +14,7 @@ from pathlib import Path
 
 # Project root is the parent of this script's "tools" directory.
 ROOT = Path(__file__).resolve().parent.parent
-PKG = ROOT / "mouse_tray"
+PKG = ROOT / "battery_tray"
 
 # Battery/state icons are generated procedurally at runtime (ui/icons.py);
 # only the window/exe icon still needs to ship as a file.
@@ -55,7 +55,7 @@ EXCLUDES = [
 
 
 #: Windows version resource. Without one the shell has no name for the process,
-#: so tray notifications and Task Manager both fall back to "mouse_tray.exe";
+#: so tray notifications and Task Manager both fall back to "battery_tray.exe";
 #: FileDescription is the string they show instead. Filled from config so the
 #: exe never disagrees with the app about its own name and version.
 VERSION_INFO = """VSVersionInfo(
@@ -71,9 +71,9 @@ VERSION_INFO = """VSVersionInfo(
           StringStruct("CompanyName", "{author}"),
           StringStruct("FileDescription", "{name}"),
           StringStruct("FileVersion", "{version}"),
-          StringStruct("InternalName", "mouse_tray"),
+          StringStruct("InternalName", "battery_tray"),
           StringStruct("LegalCopyright", "(c) {year} {author}"),
-          StringStruct("OriginalFilename", "mouse_tray.exe"),
+          StringStruct("OriginalFilename", "battery_tray.exe"),
           StringStruct("ProductName", "{name}"),
           StringStruct("ProductVersion", "{version}"),
         ],
@@ -92,7 +92,7 @@ def _write_version_file(directory: Path) -> Path:
     it before the build reads anything.
     """
     sys.path.insert(0, str(ROOT))
-    from mouse_tray.config import AUTHOR, VERSION, config
+    from battery_tray.config import AUTHOR, VERSION, config
 
     numbers = [int(part) for part in VERSION.split(".") if part.isdigit()]
     numbers = [*numbers, 0, 0, 0, 0][:4]
@@ -111,7 +111,7 @@ def _write_version_file(directory: Path) -> Path:
 
 
 def _write_commit_module() -> Path | None:
-    """Bake the current git commit into mouse_tray/_commit.py for the exe.
+    """Bake the current git commit into battery_tray/_commit.py for the exe.
 
     git isn't available inside the frozen build, so capture it here and let
     build_info.commit_hash() read the baked-in value at runtime.
@@ -146,13 +146,13 @@ def _command(commit_module: Path | None, version_file: Path) -> list[str]:
         "--noconsole",
         "--noconfirm",
         "--onedir",
-        "--icon", "mouse_tray/icons/app.ico",
-        "--name", "mouse_tray",
+        "--icon", "battery_tray/icons/app.ico",
+        "--name", "battery_tray",
         "--version-file", str(version_file),
         # Driver modules are imported dynamically (importlib) in
         # drivers/__init__.py, so PyInstaller can't see them statically.
         # Collect the whole subpackage; new drivers are then included for free.
-        "--collect-submodules", "mouse_tray.drivers",
+        "--collect-submodules", "battery_tray.drivers",
         # The project root must be importable while PyInstaller runs its hooks,
         # or --collect-submodules silently finds nothing and the exe dies on start.
         "--paths", ".",
@@ -161,11 +161,11 @@ def _command(commit_module: Path | None, version_file: Path) -> list[str]:
         cmd += ["--exclude-module", module]
     # The baked-in commit hash is imported lazily, so PyInstaller can't see it.
     if commit_module is not None:
-        cmd += ["--hidden-import", "mouse_tray._commit"]
+        cmd += ["--hidden-import", "battery_tray._commit"]
     for icon in ICONS:
         # Bundle into <bundle>/icons -- matches resources.icon_path(), which
         # resolves to "<_MEIPASS>/icons/<name>" at runtime.
-        cmd += ["--add-data", f"mouse_tray/icons/{icon};icons"]
+        cmd += ["--add-data", f"battery_tray/icons/{icon};icons"]
     cmd.append("main.py")
     return cmd
 
@@ -180,7 +180,7 @@ def main() -> None:
         result = subprocess.run(cmd, cwd=ROOT, check=False)  # exit code handled below
     if result.returncode != 0:
         sys.exit(result.returncode)
-    print("\n=== Release created in dist/mouse_tray ===")
+    print("\n=== Release created in dist/battery_tray ===")
 
 
 if __name__ == "__main__":

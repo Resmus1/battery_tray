@@ -34,7 +34,7 @@ dongle-L0" (0x124F), "8k dongle-L1" (0x1155) and so on. They all speak this same
 protocol; each just needs its own row.
 
 The older Nordic 52840 mice (ATK/VXE/VGN/Zaopin/Scyrox) speak a simpler 17-byte
-protocol -- see :mod:`~mouse_tray.drivers.chipset.nordic52`. Reference implementation:
+protocol -- see :mod:`~battery_tray.drivers.chipset.nordic52`. Reference implementation:
 https://github.com/Fan4Metal/ATK_tray
 """
 

@@ -42,7 +42,7 @@ Bluetooth-устройств в системном трее Windows (раньш�
 
 > Драйвер Razer портирован с реализации на `pyusb` на `hidapi` ради
 > единообразия; смещение в отчёте / HID-коллекцию может потребоваться уточнить
-> на железе (см. примечание в [`drivers/razer.py`](mouse_tray/drivers/razer.py)).
+> на железе (см. примечание в [`drivers/razer.py`](battery_tray/drivers/razer.py)).
 > На реальном железе проверена только **Viper V2 Pro** — остальной список взят
 > из базы устройств [OpenRazer](https://github.com/openrazer/openrazer). Это
 > модели, у которых запрос батареи использует transaction id `0x1F` (именно он
@@ -52,17 +52,26 @@ Bluetooth-устройств в системном трее Windows (раньш�
 
 ## Установка
 
-Установщика нет: программа — это папка с `mouse_tray.exe` и каталогом
+Установщика нет: программа — это папка с `battery_tray.exe` и каталогом
 `_internal\` (Python и библиотеки). Чтобы установить или обновить:
 
 1. Закройте запущенную копию (значок в трее → **Exit**).
-2. Скачайте zip из [Releases](https://github.com/Resmus1/mouse_tray/releases) и
+2. Скачайте zip из [Releases](https://github.com/Resmus1/battery_tray/releases) и
    распакуйте.
-3. Скопируйте `mouse_tray.exe` **и** `_internal\` в
-   `%LOCALAPPDATA%\Programs\mouse_tray`
-   (`C:\Users\<имя>\AppData\Local\Programs\mouse_tray`) с заменой файлов.
-4. Запустите `mouse_tray.exe`. При самом первом запуске программа сама
+3. Скопируйте `battery_tray.exe` **и** `_internal\` в
+   `%LOCALAPPDATA%\Programs\battery_tray`
+   (`C:\Users\<имя>\AppData\Local\Programs\battery_tray`) с заменой файлов.
+4. Запустите `battery_tray.exe`. При самом первом запуске программа сама
    добавит себя в автозагрузку.
+
+**Обновляетесь с Mouse Tray (0.4 и старше)?** Закройте её и установите новую
+версию, как описано выше, в новую папку `battery_tray`. При первом запуске
+программа скопирует старые настройки, таймеры и историю разряда из
+`HKCU\SOFTWARE\Mouse_Tray` и перенесёт запись **Запуск с Windows** на новый
+exe (отключение в диспетчере задач тоже переносится). После этого удалите
+`%LOCALAPPDATA%\Programs\mouse_tray`. Для Windows это новая программа, поэтому
+её значок нужно один раз включить в «Других значках в системном трее»; старые
+логи остаются в `%LOCALAPPDATA%\Mouse_Tray`.
 
 Почему `%LOCALAPPDATA%\Programs`: это стандартное место Windows для программ
 одного пользователя (туда же ставятся VS Code, Discord и другие).
@@ -82,7 +91,7 @@ Bluetooth-устройств в системном трее Windows (раньш�
 `_internal\` лежали вместе. После переноса переключите **Start with Windows** в
 настройках и заново включите значок в «Других значках в системном трее»: Windows
 привязывает и то и другое к пути exe. `AppData` скрытая: откройте папку, вставив
-`%LOCALAPPDATA%\Programs\mouse_tray` в адресную строку Проводника или в **Win+R**.
+`%LOCALAPPDATA%\Programs\battery_tray` в адресную строку Проводника или в **Win+R**.
 
 ## Запуск из исходников
 
@@ -101,7 +110,7 @@ winget install astral-sh.uv
 
 ```sh
 uv sync                      # создаёт .venv и ставит зависимости из uv.lock
-uv run python main.py        # или:  uv run python -m mouse_tray
+uv run python main.py        # или:  uv run python -m battery_tray
 ```
 
 `uv run` перед запуском сам подтягивает зависимости, так что после свежего
@@ -116,12 +125,12 @@ uv run python main.py        # или:  uv run python -m mouse_tray
 
 ```sh
 uv run --extra build python tools/make_release.py
-# -> dist/mouse_tray/
+# -> dist/battery_tray/
 ```
 
-Сборка — это **папка**, а не один файл: `mouse_tray.exe` загружает Python и
+Сборка — это **папка**, а не один файл: `battery_tray.exe` загружает Python и
 библиотеки (`python314.dll` и остальное) из каталога `_internal\` рядом с собой.
-Копируйте или переносите папку `dist\mouse_tray\` целиком — один exe без неё
+Копируйте или переносите папку `dist\battery_tray\` целиком — один exe без неё
 не запустится с ошибкой «не найден python314.dll». Однофайловая сборка не
 используется намеренно: она распаковывалась бы во `%TEMP%` при каждом запуске,
 стартовала бы медленнее и чаще вызывала ложные срабатывания антивирусов.
@@ -164,7 +173,7 @@ uv run --extra build python tools/make_release.py
 Кликните по значку в трее правой кнопкой и выберите **Settings…**, чтобы из
 диалога изменить интервал опроса, шрифт, цвет шрифта, окраску по уровню заряда,
 вид индикатора и отладочное логирование. Изменения применяются сразу и
-сохраняются в реестре (`HKCU\SOFTWARE\Mouse_Tray\Settings`), поэтому переживают
+сохраняются в реестре (`HKCU\SOFTWARE\Battery_Tray\Settings`), поэтому переживают
 перезапуск; кнопка **Reset to defaults** возвращает значения по умолчанию.
 
 В списке шрифтов по умолчанию только моноширинные (цифрам нужна фиксированная
@@ -216,19 +225,19 @@ Windows.
 
 Пока не замечено двух падений, в подсказке написано `оценка времени…`. История
 хранится отдельно для каждой мыши в реестре
-(`HKCU\SOFTWARE\Mouse_Tray\Discharge`) и переживает перезапуск.
+(`HKCU\SOFTWARE\Battery_Tray\Discharge`) и переживает перезапуск.
 
 Флажок **Start with Windows** включается автоматически при самом первом запуске;
 дальше программа его никогда не трогает. Он добавляет программу в автозагрузку текущего
 пользователя (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, значение
-`Mouse_Tray`); права администратора не требуются. Флажок отражает фактическое
+`Battery_Tray`); права администратора не требуются. Флажок отражает фактическое
 состояние Windows, включая переключатель на вкладке «Автозагрузка» Диспетчера
 задач, и не сбрасывается кнопкой **Reset to defaults**. При переносе папки с
 программой запись перенаправляется на новое расположение при следующем ручном
 запуске.
 
 Полный набор полей (включая те, которых нет в диалоге) — в
-[`mouse_tray/config.py`](mouse_tray/config.py):
+[`battery_tray/config.py`](battery_tray/config.py):
 
 | Поле               | Значение                                                   |
 | ------------------ | ---------------------------------------------------------- |
@@ -261,13 +270,13 @@ Windows.
 
 ## Логирование
 
-Логи пишутся в ротируемый файл `%LOCALAPPDATA%\Mouse_Tray\app.log` (1 МБ × 3
+Логи пишутся в ротируемый файл `%LOCALAPPDATA%\Battery_Tray\app.log` (1 МБ × 3
 бэкапа), плюс в консоль, если она есть — у собранного оконного `.exe` консоли
 нет, поэтому смотреть нужно в файл. Кнопка **Open log** в диалоге настроек
 открывает его. Подробный вывод DEBUG (сырые HID-отчёты)
 включается флагом `debug` в конфиге или переменной окружения
-`MOUSE_TRAY_DEBUG=1`. Настройка — в
-[`mouse_tray/logging_setup.py`](mouse_tray/logging_setup.py).
+`BATTERY_TRAY_DEBUG=1`. Настройка — в
+[`battery_tray/logging_setup.py`](battery_tray/logging_setup.py).
 
 ## Как добавить новую мышь
 
@@ -307,7 +316,7 @@ class AcmeDriver(HidDriver):
 ```
 
 Затем добавьте `"vendor.acme"` в `_DRIVER_MODULES` в файле
-[`drivers/__init__.py`](mouse_tray/drivers/__init__.py). Готово — детект, UI трея
+[`drivers/__init__.py`](battery_tray/drivers/__init__.py). Готово — детект, UI трея
 и сборка подхватят драйвер автоматически.
 
 > Большинство мышей укладываются в `HidDriver` (один запрос, фиксированные
@@ -319,9 +328,9 @@ class AcmeDriver(HidDriver):
 ## Как это работает
 
 Любая мышь, независимо от производителя, сводится к одной нормализованной
-структуре [`BatteryStatus`](mouse_tray/battery.py) — `present / percent /
+структуре [`BatteryStatus`](battery_tray/battery.py) — `present / percent /
 charging / full / asleep`. Единый конечный автомат в
-[`ui/app.py`](mouse_tray/ui/app.py) превращает её в значок трея (цифры, анимация
+[`ui/app.py`](battery_tray/ui/app.py) превращает её в значок трея (цифры, анимация
 зарядки, уведомление о полном заряде, тултип «время с последней полной
 зарядки»). Код вендора делает всего две вещи: **находит устройство** и
 **разбирает его отчёт о батарее**.
@@ -335,7 +344,7 @@ hid.enumerate (кэш 0.5 с)  →  detect_all_drivers()  →  driver.read_statu
 
 ### Шина
 
-[`drivers/bus.py`](mouse_tray/drivers/bus.py) перечисляет всю HID-шину один раз
+[`drivers/bus.py`](battery_tray/drivers/bus.py) перечисляет всю HID-шину один раз
 и кэширует снимок на 0.5 с. Детект перебирает каждую модель каждого драйвера —
 десятки пар VID/PID, — поэтому сопоставление идёт в памяти, а не отдельным
 сканированием шины на каждую модель. TTL заметно меньше самого быстрого
@@ -344,24 +353,24 @@ hid.enumerate (кэш 0.5 с)  →  detect_all_drivers()  →  driver.read_statu
 
 ### Драйверы
 
-Контракт [`MouseDriver`](mouse_tray/drivers/driver.py) — это два метода,
+Контракт [`MouseDriver`](battery_tray/drivers/driver.py) — это два метода,
 `detect_all()` и `read_status()`, плюс стабильный `key` (класс драйвера +
 VID/PID), опознающий мышь после переподключения. Классы регистрируются
 декоратором `@register`; список модулей в
-[`drivers/__init__.py`](mouse_tray/drivers/__init__.py) одновременно задаёт
+[`drivers/__init__.py`](battery_tray/drivers/__init__.py) одновременно задаёт
 импорт и порядок опроса при детекте. Ни один из методов не вправе бросать
 исключение при отсутствующем устройстве или сбое ввода-вывода: ответом там
 служат пустой список и `BatteryStatus.absent()`.
 
 Под этим контрактом лежат две транспортные базы:
-[`HidDriver`](mouse_tray/drivers/hid.py) для типичного случая «один запрос — один
+[`HidDriver`](battery_tray/drivers/hid.py) для типичного случая «один запрос — один
 ответ» (подклассу остаётся только `read_status()` поверх `_transact()`) и
-[`HidppDriver`](mouse_tray/drivers/hidpp.py) для многошагового HID++ 2.0
+[`HidppDriver`](battery_tray/drivers/hidpp.py) для многошагового HID++ 2.0
 (обнаружение фич, маршрутизация по индексу устройства). Общего кода у них нет —
 именно поэтому настоящая абстракция здесь `MouseDriver`, а не какая-либо из баз.
 
 Третьему виду протокол не нужен вовсе:
-[`system/bluetooth.py`](mouse_tray/drivers/system/bluetooth.py) читает уровень,
+[`system/bluetooth.py`](battery_tray/drivers/system/bluetooth.py) читает уровень,
 который Windows хранит для каждого сопряжённого Bluetooth-устройства
 (PnP-свойство `{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2`, через CfgMgr32 и
 `ctypes`), и считает устройство подключённым, пока у его узла нет флага
@@ -395,20 +404,20 @@ VID/PID), опознающий мышь после переподключени�
 
 ### Отрисовка
 
-[`_apply_status`](mouse_tray/ui/app.py) — плоская упорядоченная цепочка
+[`_apply_status`](battery_tray/ui/app.py) — плоская упорядоченная цепочка
 guard-условий, по одному на состояние: нет мыши → `-`; зарядка → анимация
 заливки (таймер главного потока); полный заряд → зелёный значок, уведомление и
 новая отметка времени; сон → `Zzz`; мышь на связи, но уровень нечитаем → `?`;
 иначе процент — цифрами или заполненной батарейкой.
-[`ui/icons.py`](mouse_tray/ui/icons.py) рисует цифры средствами PIL, а батарейку
+[`ui/icons.py`](battery_tray/ui/icons.py) рисует цифры средствами PIL, а батарейку
 растрирует из SVG-шаблона через `wx.svg` (NanoSVG, входит в состав wxPython);
 оба пути сохраняют полноценный альфа-канал вплоть до готового значка.
 
 ### Хранение
 
-[`storage.py`](mouse_tray/storage.py) держит настройки, закреплённую мышь и
+[`storage.py`](battery_tray/storage.py) держит настройки, закреплённую мышь и
 отметку времени последней полной зарядки для каждой мыши в
-`HKCU\SOFTWARE\Mouse_Tray\`. Из этой отметки и вычисляется строка тултипа с
+`HKCU\SOFTWARE\Battery_Tray\`. Из этой отметки и вычисляется строка тултипа с
 прошедшим временем.
 
 Всю конструкцию скрепляет одно архитектурное правило: `ui/app.py` никогда не
@@ -418,7 +427,7 @@ guard-условий, по одному на состояние: нет мыши
 ### Структура
 
 ```
-mouse_tray/
+battery_tray/
   autostart.py          автозапуск с Windows (значение HKCU Run)
   battery.py            BatteryStatus — универсальная модель статуса
   config.py             настройки (интервал опроса, цвета, шрифт)

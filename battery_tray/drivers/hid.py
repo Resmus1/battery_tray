@@ -9,8 +9,8 @@ and implements only :meth:`read_status`, using :meth:`_transact` to talk to the
 device: declare a model table, build a request, parse the reply.
 
 Multi-step protocols (handshake, feature discovery, device-index routing) do not
-fit this shape; they subclass :class:`~mouse_tray.drivers.hidpp.HidppDriver`
-instead. Both bases return the same :class:`~mouse_tray.battery.BatteryStatus`,
+fit this shape; they subclass :class:`~battery_tray.drivers.hidpp.HidppDriver`
+instead. Both bases return the same :class:`~battery_tray.battery.BatteryStatus`,
 so the rest of the app is unaffected by which one a driver uses.
 """
 

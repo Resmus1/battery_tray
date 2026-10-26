@@ -1,4 +1,4 @@
-"""Allow ``python -m mouse_tray``."""
+"""Allow ``python -m battery_tray``."""
 
 from .ui import run
 

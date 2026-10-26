@@ -7,8 +7,8 @@ memory, with a short TTL so a single detection sweep -- and the reads that
 immediately follow it -- share one snapshot.
 
 The TTL is well below the fastest poll rate, so hot-plug still lands within one
-tick. Used by both transport bases (:mod:`~mouse_tray.drivers.hid` and
-:mod:`~mouse_tray.drivers.hidpp`); neither is built on the other.
+tick. Used by both transport bases (:mod:`~battery_tray.drivers.hid` and
+:mod:`~battery_tray.drivers.hidpp`); neither is built on the other.
 """
 
 from __future__ import annotations

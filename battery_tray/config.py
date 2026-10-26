@@ -5,13 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 #: Application version, shown in the settings and about dialogs. Single source
-#: for the runtime version (re-exported as ``mouse_tray.__version__``).
-VERSION = "0.4.0"
+#: for the runtime version (re-exported as ``battery_tray.__version__``).
+VERSION = "0.5.0"
 
 #: Project identity, shown in the about dialog. Kept here with VERSION so the
 #: dialog has a single source for everything it prints about the app itself.
 DESCRIPTION = "Battery indicator for wireless mice, gamepads and Bluetooth devices in the Windows tray."
-HOMEPAGE = "https://github.com/Resmus1/mouse_tray"
+HOMEPAGE = "https://github.com/Resmus1/battery_tray"
 
 #: Author, stamped into the exe's version resource (CompanyName and
 #: LegalCopyright) by tools/make_release.py.
@@ -33,6 +33,10 @@ LOW_THRESHOLD = 20
 TEXT_SIZE_MIN = 50
 TEXT_SIZE_DEFAULT = 100
 TEXT_SIZE_MAX = 100
+
+#: The ``app_name`` before the program was renamed (it was "Mouse Tray" up to
+#: 0.4). Its registry data and autostart entry are adopted once at start-up.
+LEGACY_APP_NAME = "Mouse_Tray"
 
 #: Most devices the tray can show at once, one icon each.
 TRAY_ICONS_MAX = 4
@@ -77,9 +81,11 @@ class Config:
                           each, 1-``TRAY_ICONS_MAX``. With 1 the tray behaves
                           as a single-device indicator.
         app_name:         Storage/identity key -- the registry subkey that holds
-                          settings and "last full charge" times, and the log
-                          directory name. Kept underscore-form so those paths
-                          stay stable; it is not shown to the user.
+                          settings and "last full charge" times, the autostart
+                          value and the log directory name. Kept underscore-form
+                          so those paths stay stable; it is not shown to the
+                          user. Changing it needs a migration like the one from
+                          ``LEGACY_APP_NAME``.
         display_name:     Human-facing app name (tray tooltip, notifications,
                           settings-dialog title). Change this freely; it does not
                           affect any stored path.
@@ -92,7 +98,7 @@ class Config:
         language:         UI language: ``"auto"`` (Windows display language),
                           ``"en"`` or ``"ru"``.
         debug:            Enable verbose DEBUG logging (raw HID reports). Can
-                          also be turned on via the MOUSE_TRAY_DEBUG env var.
+                          also be turned on via the BATTERY_TRAY_DEBUG env var.
     """
 
     poll_rate: int = 60
@@ -107,7 +113,7 @@ class Config:
     text_size: int = TEXT_SIZE_DEFAULT
     text_outline: bool = True
     tray_icons: int = 1
-    app_name: str = "Mouse_Tray"
+    app_name: str = "Battery_Tray"
     display_name: str = "Battery Tray"
     low_battery_notify: bool = True
     notify_level_high: int = 20

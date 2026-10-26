@@ -1,7 +1,7 @@
 """Start with Windows: one value under the current user's ``Run`` registry key.
 
 Windows' own keys are the single source of truth -- nothing about autostart is
-kept in :class:`~mouse_tray.config.Config` -- so the settings checkbox always
+kept in :class:`~battery_tray.config.Config` -- so the settings checkbox always
 shows what Windows will really do at sign-in. That includes the switch on Task
 Manager's Startup tab: it leaves the ``Run`` value in place and records the
 "disabled" flag under ``Explorer\\StartupApproved\\Run`` instead, so both keys are
@@ -87,6 +87,35 @@ def set_enabled(app_name: str, enabled: bool) -> None:
     # On: an explicit tick overrides an earlier Task Manager switch-off. Off: no
     # point leaving a flag behind for a value that no longer exists.
     _delete_value(_APPROVED_KEY, app_name)
+
+
+def adopt_legacy(legacy_app_name: str, app_name: str) -> None:
+    """Move the old program's entry over to this name and this copy.
+
+    Done only by the frozen exe -- a source run must not take over the
+    installed program's sign-in entry. A Task Manager switch-off carries over
+    with it. The old value is removed either way, or both programs would start
+    at sign-in. Logs instead of raising.
+    """
+    old = _run_value(legacy_app_name)
+    if old is None or not getattr(sys, "frozen", False):
+        return
+    disabled = _disabled_in_task_manager(legacy_app_name)
+    try:
+        if _run_value(app_name) is None:
+            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, _RUN_KEY) as key:
+                winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, command())
+            if disabled:
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _APPROVED_KEY) as key:
+                    flag = winreg.QueryValueEx(key, legacy_app_name)[0]
+                with winreg.CreateKey(winreg.HKEY_CURRENT_USER, _APPROVED_KEY) as key:
+                    winreg.SetValueEx(key, app_name, 0, winreg.REG_BINARY, flag)
+        _delete_value(_RUN_KEY, legacy_app_name)
+        _delete_value(_APPROVED_KEY, legacy_app_name)
+    except OSError as exc:
+        log.warning("Could not move the %s autostart entry: %s", legacy_app_name, exc)
+        return
+    log.info("Autostart moved from %s (%s) to %s", legacy_app_name, old, command())
 
 
 def repair(app_name: str) -> None:

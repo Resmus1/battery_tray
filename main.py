@@ -1,6 +1,6 @@
 """Entry point for the universal mouse battery tray indicator."""
 
-from mouse_tray import run
+from battery_tray import run
 
 
 def main() -> None:

@@ -15,7 +15,7 @@ from ..i18n import tr
 class MouseChoice:
     """One entry of the mouse selector.
 
-    ``key`` is :attr:`~mouse_tray.drivers.driver.MouseDriver.key` -- opaque to
+    ``key`` is :attr:`~battery_tray.drivers.driver.MouseDriver.key` -- opaque to
     the UI, handed straight back to ``on_select_mouse``.
     """
 
@@ -42,7 +42,7 @@ class TrayIcon(TaskBarIcon):
     """Thin wrapper around ``TaskBarIcon`` that forwards events to callbacks.
 
     Keeping the UI widget free of app logic means the state machine in
-    :mod:`mouse_tray.ui.app` owns all behavior -- including which mice exist and
+    :mod:`battery_tray.ui.app` owns all behavior -- including which mice exist and
     which one is pinned; this class only renders the list it is handed.
     """
 

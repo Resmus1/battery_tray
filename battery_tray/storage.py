@@ -237,6 +237,67 @@ def mark_autostart_defaulted(app_name: str) -> None:
         log.warning("Could not save the autostart default flag: %s", exc)
 
 
+# --- rename -----------------------------------------------------------------
+#
+# Up to 0.4 the program was Mouse Tray, with its data under SOFTWARE\Mouse_Tray.
+
+
+_ADOPTED_FROM = "AdoptedFrom"
+
+
+def adopt_legacy_data(legacy_app_name: str, app_name: str) -> bool:
+    """Copy ``SOFTWARE\\<legacy>`` into ``SOFTWARE\\<app_name>``, once.
+
+    Settings, pins, full-charge timers and discharge history all carry over.
+    "Once" is an ``AdoptedFrom`` value written only after the whole copy went
+    through, not the mere presence of the new key: a copy cut short is simply
+    redone on the next start. The old key is left alone, so an older build
+    started again finds its data. Returns whether anything was copied; logs
+    instead of raising.
+    """
+    path = rf"SOFTWARE\{app_name}"
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_READ) as key:
+            if _read_str(key, _ADOPTED_FROM):
+                return False
+    except OSError:
+        pass  # no key yet
+    try:
+        legacy = rf"SOFTWARE\{legacy_app_name}"
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, legacy, 0, winreg.KEY_READ) as old:
+            _copy_key(old, path)
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, path) as key:
+            winreg.SetValueEx(key, _ADOPTED_FROM, 0, winreg.REG_SZ, legacy_app_name)
+    except FileNotFoundError:
+        return False  # nothing to adopt: a fresh install
+    except OSError as exc:
+        log.warning("Could not copy the %s settings: %s", legacy_app_name, exc)
+        return False
+    return True
+
+
+def _copy_key(source: winreg.HKEYType, path: str) -> None:
+    """Copy every value and subkey of ``source`` to ``HKCU\\<path>``."""
+    with winreg.CreateKey(winreg.HKEY_CURRENT_USER, path) as target:
+        index = 0
+        while True:
+            try:
+                name, value, kind = winreg.EnumValue(source, index)
+            except OSError:
+                break  # no more values
+            winreg.SetValueEx(target, name, 0, kind, value)
+            index += 1
+    index = 0
+    while True:
+        try:
+            subkey = winreg.EnumKey(source, index)
+        except OSError:
+            break  # no more subkeys
+        with winreg.OpenKey(source, subkey, 0, winreg.KEY_READ) as child:
+            _copy_key(child, rf"{path}\{subkey}")
+        index += 1
+
+
 # --- pinned mice ------------------------------------------------------------
 #
 # Kept out of Config on purpose: the pins are chosen from the tray menu, not

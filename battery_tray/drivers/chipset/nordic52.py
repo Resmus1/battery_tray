@@ -23,7 +23,7 @@ baked-in ``0x49`` (= 73). The battery collection is usage page ``0xFF02`` (usage
 ``0x02``), which pins it among the several the vendor interface splits into.
 
 The newer Nordic 54L15 silicon (e.g. ATK Zero) speaks a different, 64-byte
-protocol on its own HID collection -- see :mod:`~mouse_tray.drivers.chipset.nordic54`.
+protocol on its own HID collection -- see :mod:`~battery_tray.drivers.chipset.nordic54`.
 """
 
 from __future__ import annotations

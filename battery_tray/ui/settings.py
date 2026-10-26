@@ -3,7 +3,7 @@
 The dialog only knows how to read/write a :class:`Config`; persisting the result
 and refreshing the running tray is the caller's job (see ``app._open_settings``).
 The one exception is "Start with Windows": it is not part of ``Config`` --
-Windows' ``Run`` key is its only store (see :mod:`mouse_tray.autostart`) -- so the dialog
+Windows' ``Run`` key is its only store (see :mod:`battery_tray.autostart`) -- so the dialog
 reads it on open and writes it itself on OK.
 
 The font picker lists monospaced faces by default (the indicator wants

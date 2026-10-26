@@ -29,7 +29,7 @@ from wx.adv import NotificationMessage
 from .. import autostart
 from ..battery import BatteryStatus
 from ..build_info import version_string
-from ..config import GREEN, Config
+from ..config import GREEN, LEGACY_APP_NAME, Config
 from ..config import config as default_config
 from ..diagnostics import log_startup_diagnostics
 from ..drivers import MouseDriver, detect_all_drivers
@@ -717,9 +717,12 @@ def _default_autostart(app_name: str) -> None:
 
 def run(config: Config | None = None) -> None:
     """Launch the tray application."""
-    from ..storage import load_settings
+    from ..storage import adopt_legacy_data, load_settings
 
     cfg = config or default_config
+    # Before anything reads the registry: the first start after the rename
+    # brings the Mouse Tray settings, timers and history along.
+    adopted = adopt_legacy_data(LEGACY_APP_NAME, cfg.app_name)
     load_settings(cfg.app_name, cfg)  # apply any persisted user settings
     set_language(cfg.language)
     setup_logging(cfg.app_name, cfg.debug)
@@ -728,6 +731,9 @@ def run(config: Config | None = None) -> None:
     sys.excepthook = lambda kind, value, tb: log.error("Unhandled error", exc_info=(kind, value, tb))
     log.info("Starting %s %s from %s", cfg.display_name, version_string(), sys.executable)
     log_startup_diagnostics()
+    if adopted:
+        log.info("Settings adopted from %s", LEGACY_APP_NAME)
+    autostart.adopt_legacy(LEGACY_APP_NAME, cfg.app_name)
     autostart.repair(cfg.app_name)  # follow the program if its folder moved
     _default_autostart(cfg.app_name)
     with suppress(AttributeError, OSError):  # non-Windows or older Windows

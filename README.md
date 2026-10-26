@@ -41,7 +41,7 @@ file, no changes to the UI or polling code.
 
 > The Razer driver was ported from a `pyusb` implementation to `hidapi` for
 > uniformity; the report offset / HID collection may need confirmation on
-> hardware (see the note in [`drivers/razer.py`](mouse_tray/drivers/razer.py)).
+> hardware (see the note in [`drivers/razer.py`](battery_tray/drivers/razer.py)).
 > Only **Viper V2 Pro** is verified on real hardware — the rest of the list was
 > taken from [OpenRazer](https://github.com/openrazer/openrazer)'s device
 > database. These are the models whose battery query uses transaction id `0x1F`
@@ -51,17 +51,25 @@ file, no changes to the UI or polling code.
 
 ## Install
 
-There is no installer: the program is a folder with `mouse_tray.exe` and its
+There is no installer: the program is a folder with `battery_tray.exe` and its
 `_internal\` directory (Python and the libraries). To install or update:
 
 1. Exit the running copy (tray icon → **Exit**).
-2. Download the zip from [Releases](https://github.com/Resmus1/mouse_tray/releases)
+2. Download the zip from [Releases](https://github.com/Resmus1/battery_tray/releases)
    and unzip it.
-3. Copy `mouse_tray.exe` **and** `_internal\` into
-   `%LOCALAPPDATA%\Programs\mouse_tray`
-   (`C:\Users\<you>\AppData\Local\Programs\mouse_tray`), replacing the old files.
-4. Run `mouse_tray.exe`. On the very first start it adds itself to Windows
+3. Copy `battery_tray.exe` **and** `_internal\` into
+   `%LOCALAPPDATA%\Programs\battery_tray`
+   (`C:\Users\<you>\AppData\Local\Programs\battery_tray`), replacing the old files.
+4. Run `battery_tray.exe`. On the very first start it adds itself to Windows
    startup.
+
+**Coming from Mouse Tray (0.4 and older)?** Exit it and install as above into
+the new `battery_tray` folder. The first start copies the old settings, timers
+and discharge history from `HKCU\SOFTWARE\Mouse_Tray` and moves the
+**Start with Windows** entry to the new exe (a Task Manager switch-off carries
+over). Then delete `%LOCALAPPDATA%\Programs\mouse_tray`. Windows sees a new
+program, so re-enable its icon once in "Other system tray icons"; old logs stay
+in `%LOCALAPPDATA%\Mouse_Tray`.
 
 Why `%LOCALAPPDATA%\Programs`: it is Windows' standard place for per-user
 programs (VS Code, Discord and others install there too).
@@ -81,7 +89,7 @@ Any folder on a local disk works if you prefer another one; keep the exe and
 `_internal\` together. After moving it, toggle **Start with Windows** in the
 settings and re-enable the tray icon in Windows' "Other system tray icons",
 because Windows ties both to the exe path. `AppData` is hidden: open the folder
-by pasting `%LOCALAPPDATA%\Programs\mouse_tray` into Explorer's address bar or
+by pasting `%LOCALAPPDATA%\Programs\battery_tray` into Explorer's address bar or
 **Win+R**.
 
 ## Run from source
@@ -101,7 +109,7 @@ Then, from the project root:
 
 ```sh
 uv sync                      # create .venv and install dependencies from uv.lock
-uv run python main.py        # or:  uv run python -m mouse_tray
+uv run python main.py        # or:  uv run python -m battery_tray
 ```
 
 `uv run` auto-syncs first, so `uv run python main.py` alone is enough after a
@@ -116,12 +124,12 @@ To build locally:
 
 ```sh
 uv run --extra build python tools/make_release.py
-# -> dist/mouse_tray/
+# -> dist/battery_tray/
 ```
 
-The build is a **folder**, not a single file: `mouse_tray.exe` loads Python and
+The build is a **folder**, not a single file: `battery_tray.exe` loads Python and
 its libraries (`python314.dll` and the rest) from the `_internal\` directory next
-to it. Copy or move the whole `dist\mouse_tray\` folder — the exe on its own
+to it. Copy or move the whole `dist\battery_tray\` folder — the exe on its own
 fails to start with a "python314.dll not found" error. A one-file build is
 deliberately not used: it would unpack itself into `%TEMP%` on every launch,
 starting slower and tripping antivirus heuristics more often.
@@ -161,7 +169,7 @@ low-battery warnings are kept per device, so switching keeps each one's own.
 Right-click the tray icon and choose **Settings…** to change the poll interval,
 font, font color, charge-level coloring, the indicator style and debug logging
 from a dialog. Changes apply immediately and are saved to the registry
-(`HKCU\SOFTWARE\Mouse_Tray\Settings`), so they survive restarts; **Reset to
+(`HKCU\SOFTWARE\Battery_Tray\Settings`), so they survive restarts; **Reset to
 defaults** restores the code defaults.
 
 The font picker lists monospaced faces by default (the digits want to be
@@ -210,19 +218,19 @@ DPI, motion sync — and on how much it is used, so:
   counted as discharge.
 
 Until two drops have been seen it says `estimating time left…`. The history is
-kept per mouse in the registry (`HKCU\SOFTWARE\Mouse_Tray\Discharge`), so it
+kept per mouse in the registry (`HKCU\SOFTWARE\Battery_Tray\Discharge`), so it
 survives restarts.
 
 **Start with Windows** is turned on automatically at the very first start; after
 that the program never changes it again. It adds the program to the current user's sign-in startup
-(`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, value `Mouse_Tray`); no
+(`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, value `Battery_Tray`); no
 administrator rights are needed. The checkbox reflects the actual Windows
 state, including the switch on the Startup tab of Task Manager, and is not
 affected by **Reset to defaults**. If the program folder is moved, the entry is
 redirected to the new location on the next manual start.
 
 For the full set of fields (including those not exposed in the dialog), edit
-[`mouse_tray/config.py`](mouse_tray/config.py):
+[`battery_tray/config.py`](battery_tray/config.py):
 
 | Field              | Meaning                                            |
 | ------------------ | -------------------------------------------------- |
@@ -255,13 +263,13 @@ any edit here.
 
 ## Logging
 
-Logs go to a rotating file at `%LOCALAPPDATA%\Mouse_Tray\app.log` (1 MB × 3
+Logs go to a rotating file at `%LOCALAPPDATA%\Battery_Tray\app.log` (1 MB × 3
 backups), plus the console when one is available — under the windowed `.exe`
 build there is no console, so the file is the place to look. The **Open log**
 button in the settings dialog opens it. Enable verbose
 DEBUG output (raw HID reports) with the `debug` config flag or by setting the
-`MOUSE_TRAY_DEBUG=1` environment variable. Configured in
-[`mouse_tray/logging_setup.py`](mouse_tray/logging_setup.py).
+`BATTERY_TRAY_DEBUG=1` environment variable. Configured in
+[`battery_tray/logging_setup.py`](battery_tray/logging_setup.py).
 
 ## Adding a new mouse
 
@@ -302,7 +310,7 @@ class AcmeDriver(HidDriver):
 ```
 
 Then add `"vendor.acme"` to `_DRIVER_MODULES` in
-[`drivers/__init__.py`](mouse_tray/drivers/__init__.py). Done — detection, the
+[`drivers/__init__.py`](battery_tray/drivers/__init__.py). Done — detection, the
 tray UI and packaging pick it up automatically.
 
 > Most mice fit `HidDriver` (one request, fixed offsets). Multi-step protocols
@@ -314,8 +322,8 @@ tray UI and packaging pick it up automatically.
 ## How it works
 
 Every mouse, regardless of vendor, is reduced to one normalized
-[`BatteryStatus`](mouse_tray/battery.py) — `present / percent / charging / full
-/ asleep`. A single state machine in [`ui/app.py`](mouse_tray/ui/app.py) renders
+[`BatteryStatus`](battery_tray/battery.py) — `present / percent / charging / full
+/ asleep`. A single state machine in [`ui/app.py`](battery_tray/ui/app.py) renders
 that into the tray icon (digits, charging animation, full-charge notification,
 "time since last full charge" tooltip). Vendor code only does two things:
 **detect the device** and **parse its battery report**.
@@ -329,7 +337,7 @@ hid.enumerate (cached 0.5 s)  →  detect_all_drivers()  →  driver.read_status
 
 ### The bus
 
-[`drivers/bus.py`](mouse_tray/drivers/bus.py) enumerates the whole HID bus once
+[`drivers/bus.py`](battery_tray/drivers/bus.py) enumerates the whole HID bus once
 and caches the snapshot for 0.5 s. Detection walks every model of every driver —
 dozens of VID/PID pairs — so matching happens in memory instead of rescanning the
 bus once per model. The TTL sits well below the fastest poll rate, so a
@@ -337,23 +345,23 @@ hot-plugged mouse still lands within one tick.
 
 ### Drivers
 
-The [`MouseDriver`](mouse_tray/drivers/driver.py) contract is two methods —
+The [`MouseDriver`](battery_tray/drivers/driver.py) contract is two methods —
 `detect_all()` and `read_status()` — plus a stable `key` (driver class + VID/PID)
 that identifies the mouse across re-plugs. Classes register themselves with the
 `@register` decorator; the module list in
-[`drivers/__init__.py`](mouse_tray/drivers/__init__.py) is both the import list
+[`drivers/__init__.py`](battery_tray/drivers/__init__.py) is both the import list
 and the detection probe order. Neither method may raise for an absent device or
 an I/O hiccup: an empty list and `BatteryStatus.absent()` are the answers there.
 
 Two transport bases sit under that contract:
-[`HidDriver`](mouse_tray/drivers/hid.py) for the common one-request/one-reply
+[`HidDriver`](battery_tray/drivers/hid.py) for the common one-request/one-reply
 case (a subclass writes only `read_status()` on top of `_transact()`), and
-[`HidppDriver`](mouse_tray/drivers/hidpp.py) for multi-step HID++ 2.0 (feature
+[`HidppDriver`](battery_tray/drivers/hidpp.py) for multi-step HID++ 2.0 (feature
 discovery, device-index routing). The two share no code, which is precisely why
 the real abstraction is `MouseDriver` rather than either base.
 
 A third kind needs no protocol at all:
-[`system/bluetooth.py`](mouse_tray/drivers/system/bluetooth.py) reads the level
+[`system/bluetooth.py`](battery_tray/drivers/system/bluetooth.py) reads the level
 Windows keeps for every paired Bluetooth device (the PnP property
 `{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2`, through CfgMgr32 and `ctypes`),
 counting a device only while its node lacks `DN_DEVICE_DISCONNECTED`. It probes
@@ -391,19 +399,19 @@ not by the icon.
 
 ### Rendering
 
-[`_apply_status`](mouse_tray/ui/app.py) is a flat, ordered chain of guard
+[`_apply_status`](battery_tray/ui/app.py) is a flat, ordered chain of guard
 clauses, one per state: no mouse → `-`; charging → the fill animation (a
 main-thread timer); full → a green icon, a toast and a fresh full-charge
 timestamp; asleep → `Zzz`; present but with no readable level → `?`; otherwise
 the percent, as digits or as a filled battery.
-[`ui/icons.py`](mouse_tray/ui/icons.py) draws the digits with PIL and rasterizes
+[`ui/icons.py`](battery_tray/ui/icons.py) draws the digits with PIL and rasterizes
 the battery from an SVG template through `wx.svg` (NanoSVG, bundled with
 wxPython), both keeping a real alpha channel all the way to the icon.
 
 ### Storage
 
-[`storage.py`](mouse_tray/storage.py) keeps the settings, the pinned mouse and
-the per-mouse "last full charge" timestamp under `HKCU\SOFTWARE\Mouse_Tray\`.
+[`storage.py`](battery_tray/storage.py) keeps the settings, the pinned mouse and
+the per-mouse "last full charge" timestamp under `HKCU\SOFTWARE\Battery_Tray\`.
 That timestamp is what the tooltip's elapsed-time line is computed from.
 
 One architectural rule holds the whole thing together: `ui/app.py` never imports
@@ -412,7 +420,7 @@ a driver module — only `detect_all_drivers()` and the `MouseDriver` contract.
 ### Layout
 
 ```
-mouse_tray/
+battery_tray/
   autostart.py          Start with Windows (HKCU Run value)
   battery.py            BatteryStatus — the universal status model
   config.py             settings (poll rate, colors, font)

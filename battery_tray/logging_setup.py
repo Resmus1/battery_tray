@@ -8,7 +8,7 @@ Built for a windowed (``--noconsole``) tray app:
   windowed build ``sys.stderr`` is ``None``, and a plain ``StreamHandler`` would
   raise on every log call.
 * DEBUG (verbose HID byte dumps) is opt-in via the ``debug`` flag or the
-  ``MOUSE_TRAY_DEBUG`` environment variable.
+  ``BATTERY_TRAY_DEBUG`` environment variable.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from logging.handlers import RotatingFileHandler
 _FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 _MAX_BYTES = 1_000_000
 _BACKUP_COUNT = 3
-_DEBUG_ENV = "MOUSE_TRAY_DEBUG"
+_DEBUG_ENV = "BATTERY_TRAY_DEBUG"
 _LOG_FILE = "app.log"
 
 

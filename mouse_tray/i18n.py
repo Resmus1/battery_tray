@@ -43,7 +43,10 @@ _RU = {
     "Poll interval (s):": "Интервал опроса (с):",
     "Font (monospaced):": "Шрифт (моноширинный):",
     "Font:": "Шрифт:",
-    "Show all fonts:": "Все шрифты:",
+    "Show all fonts": "Все шрифты",
+    "Tray icon": "Значок в трее",
+    "Notifications": "Уведомления",
+    "General": "Общие",
     "List every installed font, not just monospaced ones.\n"
     "The digits are measured in the chosen face, so any font fits.":
         "Показать все установленные шрифты, а не только моноширинные.\n"

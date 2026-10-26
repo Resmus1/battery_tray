@@ -187,19 +187,15 @@ class _SettingsDialog(wx.Dialog):
 
         self._all_faces, self._mono_faces, self._face_to_path, self._path_to_face = _collect_faces()
 
-        grid = wx.FlexGridSizer(rows=0, cols=2, vgap=8, hgap=8)
-        grid.AddGrowableCol(1, 1)
+        # Three titled sections; the label columns line up within each one.
+        look, notify, general = (self._new_grid() for _ in range(3))
 
-        grid.Add(wx.StaticText(self, label=tr("Poll interval (s):")), 0, wx.ALIGN_CENTER_VERTICAL)
-        self._poll = wx.SpinCtrl(self, min=1, max=3600, initial=int(config.poll_rate))
-        grid.Add(self._poll, 0, wx.EXPAND)
+        self._build_font_section(look)
 
-        self._build_font_section(grid)
-
-        self._build_size_row(grid, config.text_size)
+        self._build_size_row(look, config.text_size)
 
         self._text_outline = self._add_checkbox(
-            grid,
+            look,
             "Text outline:",
             config.text_outline,
             "Draw a contrasting outline around the tray digits.\n"
@@ -207,10 +203,10 @@ class _SettingsDialog(wx.Dialog):
         )
         self._text_outline.Bind(wx.EVT_CHECKBOX, self._on_outline)
 
-        self._build_color_row(grid, config)
+        self._build_color_row(look, config)
 
         self._dynamic_color = self._add_checkbox(
-            grid,
+            look,
             "Color by charge level:",
             config.dynamic_color,
             tr(
@@ -223,7 +219,7 @@ class _SettingsDialog(wx.Dialog):
         )
         self._dynamic_color.Bind(wx.EVT_CHECKBOX, self._on_dynamic_color)
         self._battery_icon = self._add_checkbox(
-            grid,
+            look,
             "Show battery icon:",
             config.battery_icon,
             "Draw a battery filled to the charge level instead of\n"
@@ -231,18 +227,20 @@ class _SettingsDialog(wx.Dialog):
             "tray tooltip.",
         )
         self._battery_icon.Bind(wx.EVT_CHECKBOX, self._on_battery_icon)
-        self._build_notify_rows(grid, config, on_test_notification)
-        self._build_language_row(grid, config.language)
+        self._build_notify_rows(notify, config, on_test_notification)
+
+        self._build_poll_row(general, config.poll_rate)
+        self._build_language_row(general, config.language)
         self._app_name = config.app_name
         self._autostart_was = autostart.is_enabled(config.app_name)
         self._autostart = self._add_checkbox(
-            grid,
+            general,
             "Start with Windows:",
             self._autostart_was,
             "Run the program when you sign in to Windows.\n"
             "Also shown on the Startup tab of Task Manager.",
         )
-        self._debug = self._add_checkbox(grid, "Debug logging:", config.debug)
+        self._debug = self._add_checkbox(general, "Debug logging:", config.debug)
 
         reset = wx.Button(self, label=tr("Reset to defaults"))
         reset.Bind(wx.EVT_BUTTON, self._on_reset)
@@ -264,7 +262,16 @@ class _SettingsDialog(wx.Dialog):
         bottom.Add(buttons, 0)
 
         outer = wx.BoxSizer(wx.VERTICAL)
-        outer.Add(grid, 0, wx.EXPAND | wx.ALL, 12)
+        self._align_label_columns((look, notify, general))
+        for title, grid in (
+            ("Tray icon", look),
+            ("Notifications", notify),
+            ("General", general),
+        ):
+            box = wx.StaticBoxSizer(wx.VERTICAL, self, tr(title))
+            box.Add(grid, 0, wx.EXPAND | wx.ALL, 8)
+            outer.Add(box, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, 12)
+        outer.AddSpacer(12)
         outer.Add(bottom, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
         self.SetSizerAndFit(outer)
         self.SetMinSize(self.GetSize())
@@ -278,6 +285,26 @@ class _SettingsDialog(wx.Dialog):
         self.Bind(wx.EVT_BUTTON, self._on_ok, id=wx.ID_OK)
 
     # --- helpers ------------------------------------------------------------
+
+    @staticmethod
+    def _align_label_columns(grids: tuple[wx.FlexGridSizer, ...]) -> None:
+        """Give every section's label column the widest label's width, so the
+        controls of all three sections start on one vertical line."""
+        labels = [
+            item.GetWindow()
+            for grid in grids
+            for index, item in enumerate(grid.GetChildren())
+            if index % 2 == 0 and item.GetWindow() is not None
+        ]
+        width = max(label.GetBestSize().width for label in labels)
+        for label in labels:
+            label.SetMinSize(wx.Size(width, -1))
+
+    @staticmethod
+    def _new_grid() -> wx.FlexGridSizer:
+        grid = wx.FlexGridSizer(rows=0, cols=2, vgap=8, hgap=12)
+        grid.AddGrowableCol(1, 1)
+        return grid
 
     def _add_checkbox(
         self, grid: wx.FlexGridSizer, label: str, value: bool, tip: str | None = None
@@ -300,16 +327,20 @@ class _SettingsDialog(wx.Dialog):
         grid.Add(self._font_label, 0, wx.ALIGN_CENTER_VERTICAL)
         self._font = _FontPicker(self, list(self._all_faces))
         self._font.Bind(wx.EVT_COMBOBOX, self._on_font_selected)
-        grid.Add(self._font, 1, wx.EXPAND)
 
-        self._all_fonts = self._add_checkbox(
-            grid,
-            "Show all fonts:",
-            False,
-            "List every installed font, not just monospaced ones.\n"
-            "The digits are measured in the chosen face, so any font fits.",
+        # Next to the picker, not a row of its own: it only filters that list.
+        self._all_fonts = wx.CheckBox(self, label=tr("Show all fonts"))
+        self._all_fonts.SetToolTip(
+            tr(
+                "List every installed font, not just monospaced ones.\n"
+                "The digits are measured in the chosen face, so any font fits."
+            )
         )
         self._all_fonts.Bind(wx.EVT_CHECKBOX, self._on_all_fonts)
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        row.Add(self._font, 1, wx.ALIGN_CENTER_VERTICAL)
+        row.Add(self._all_fonts, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 12)
+        grid.Add(row, 1, wx.EXPAND)
 
     def _build_notify_rows(
         self, grid: wx.FlexGridSizer, config: Config, on_test: Callable[[], None] | None
@@ -352,6 +383,13 @@ class _SettingsDialog(wx.Dialog):
         self._notify_repeat.SetToolTip(repeat_tip)
         grid.Add(repeat_label, 0, wx.ALIGN_CENTER_VERTICAL)
         grid.Add(self._notify_repeat, 0, wx.ALIGN_CENTER_VERTICAL)
+
+    def _build_poll_row(self, grid: wx.FlexGridSizer, poll_rate: int) -> None:
+        """Append the poll interval spinner, sized for its numbers rather than the row."""
+        grid.Add(wx.StaticText(self, label=tr("Poll interval (s):")), 0, wx.ALIGN_CENTER_VERTICAL)
+        self._poll = wx.SpinCtrl(self, min=1, max=3600, initial=int(poll_rate))
+        self._poll.SetMinSize(self.FromDIP(wx.Size(80, -1)))
+        grid.Add(self._poll, 0, wx.ALIGN_CENTER_VERTICAL)
 
     def _build_language_row(self, grid: wx.FlexGridSizer, language: str) -> None:
         """Append the interface language picker (applies when the dialog closes)."""

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import os
+import subprocess
 import sys
 from contextlib import suppress
 from logging.handlers import RotatingFileHandler
@@ -38,13 +39,24 @@ def log_path(app_name: str) -> str:
 
 
 def open_log(app_name: str) -> None:
-    """Open the log file in whatever the user reads text with; fall back to
-    the log folder if the file is missing or has no associated program."""
-    try:
-        os.startfile(log_path(app_name))
-    except (AttributeError, OSError):  # non-Windows, no file, no association
+    """Open the log in Notepad; fall back to the default app, then the folder.
+
+    Notepad first because ``os.startfile`` silently does nothing on some
+    machines where ``.log`` is tied to a Store app, and the button then
+    looked dead.
+    """
+    path = log_path(app_name)
+    if os.path.isfile(path):
+        try:
+            subprocess.Popen(["notepad.exe", path])  # always on PATH on Windows
+            return
+        except OSError:
+            pass
         with suppress(AttributeError, OSError):
-            os.startfile(log_dir(app_name))
+            os.startfile(path)
+            return
+    with suppress(AttributeError, OSError):
+        os.startfile(log_dir(app_name))
 
 
 def _debug_enabled(debug: bool) -> bool:

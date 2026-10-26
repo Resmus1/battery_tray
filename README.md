@@ -99,6 +99,11 @@ fresh clone. `uv.lock` pins exact versions for reproducible installs.
 
 ## Build a standalone .exe
 
+Releases are built by GitHub Actions ([`.github/workflows/release.yml`](.github/workflows/release.yml)):
+push a tag such as `v0.2.0` and the workflow builds the exe on a clean Windows
+runner from `uv.lock` and attaches the zip to a release named after the tag.
+To build locally:
+
 ```sh
 uv run --extra build python tools/make_release.py
 # -> dist/mouse_tray/
@@ -159,10 +164,34 @@ hover tooltip (which also shows the mouse name and time since the last full
 charge). "No mouse", sleep and unknown-level states stay textual either way.
 
 **Low battery notification** (on by default) shows a Windows notification when
-the charge drops to 20% and again at 10%, once per discharge; charging resets
-it. The **Test** button next to it shows the notification right away, to check
-that Windows lets it through (Settings → System → Notifications, Do not
-disturb).
+the charge drops to the first level and again at the second (**Notify at**,
+20% and 10% by default). Below the lower level it repeats every **Repeat below
+lower level** minutes (15 by default, 0 = once). Charging resets it. The
+**Test** button shows the notification right away, to check that Windows lets
+it through (Settings → System → Notifications, Do not disturb).
+
+**Language** switches the interface between English and Russian; **Auto**
+follows the Windows display language.
+
+### Time left
+
+The tooltip shows an estimate such as `≈ 6 h 20 min left`. It is measured, not
+assumed: each time the percent drops, the time since the previous drop gives
+the current drain rate, and the estimate is the median of the last six such
+stretches. The drain depends on the mouse settings — polling rate (1K vs 8K),
+DPI, motion sync — and on how much it is used, so:
+
+- when the two latest stretches both differ from the older ones by more than
+  1.8× (say, polling went from 1K to 8K), the older ones are dropped and the
+  estimate follows the new drain after two percent;
+- an idle stretch that runs long counts as one more sample, so one quiet hour
+  does not swing the number;
+- time without readings (PC asleep or off, mouse off, app closed) is never
+  counted as discharge.
+
+Until two drops have been seen it says `estimating time left…`. The history is
+kept per mouse in the registry (`HKCU\SOFTWARE\Mouse_Tray\Discharge`), so it
+survives restarts.
 
 **Start with Windows** is turned on automatically at the very first start; after
 that the program never changes it again. It adds the program to the current user's sign-in startup
@@ -188,7 +217,10 @@ For the full set of fields (including those not exposed in the dialog), edit
 | `font`             | Font file for the digits (`consola.ttf`)           |
 | `app_name`         | Storage key: registry subkey + log directory name  |
 | `display_name`     | Human-facing name (tray tooltip, toasts, settings) |
-| `low_battery_notify` | Notify at 20% and 10% (`LOW_WARN_THRESHOLDS`, on) |
+| `low_battery_notify` | Low-battery notifications (on)                   |
+| `notify_level_high` / `notify_level_low` | Notification levels, % (20 / 10) |
+| `notify_repeat_minutes` | Repeat interval below the lower level (15, 0 = off) |
+| `language`         | `auto`, `en` or `ru`                               |
 | `debug`            | Verbose DEBUG logging (raw HID reports)            |
 
 ## About

@@ -1,0 +1,54 @@
+# Build mouse_tray.exe and publish it as a GitHub Release.
+#
+# Push a tag like v0.2.0 (or run it by hand from the Actions tab with a tag
+# name) and this builds the exe on a clean Windows runner from uv.lock, zips
+# dist/mouse_tray and attaches the zip to a release named after the tag.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build and release (created on the current commit if missing)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # git rev-parse for the commit hash shown in About
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --extra build
+
+      - name: Build exe
+        run: uv run --extra build python tools/make_release.py
+
+      - name: Zip
+        shell: pwsh
+        run: Compress-Archive -Path dist\mouse_tray -DestinationPath "mouse_tray-$env:TAG.zip"
+
+      - name: Publish release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $notes = @"
+          **Install:** unzip, copy ``mouse_tray.exe`` and ``_internal\`` to ``%LOCALAPPDATA%\Programs\mouse_tray`` (replace the old files), run the exe. Keep both together; see README → Install. Windows 10/11 x64. The exe is unsigned, so SmartScreen may warn.
+          "@
+          gh release create $env:TAG "mouse_tray-$env:TAG.zip" `
+            --target $env:GITHUB_SHA `
+            --title "mouse_tray $env:TAG" `
+            --notes $notes `
+            --generate-notes

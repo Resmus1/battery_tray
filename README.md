@@ -39,6 +39,41 @@ file, no changes to the UI or polling code.
 > that use `0x3F` / `0xFF` are not covered yet. If one of the unverified models
 > reads wrong, confirm the response offset / `usage_page` on hardware.
 
+## Install
+
+There is no installer: the program is a folder with `mouse_tray.exe` and its
+`_internal\` directory (Python and the libraries). To install or update:
+
+1. Exit the running copy (tray icon → **Exit**).
+2. Download the zip from [Releases](https://github.com/Resmus1/mouse_tray/releases)
+   and unzip it.
+3. Copy `mouse_tray.exe` **and** `_internal\` into
+   `%LOCALAPPDATA%\Programs\mouse_tray`
+   (`C:\Users\<you>\AppData\Local\Programs\mouse_tray`), replacing the old files.
+4. Run `mouse_tray.exe`. On the very first start it adds itself to Windows
+   startup.
+
+Why `%LOCALAPPDATA%\Programs`: it is Windows' standard place for per-user
+programs (VS Code, Discord and others install there too).
+
+- **No administrator rights.** Files in `C:\Program Files` can only be replaced
+  through a UAC prompt; here they are ordinary user files.
+- **Matches the autostart.** Startup is registered for the current user only
+  (`HKCU\...\Run`), so a per-user program folder fits.
+- **Never synced.** Desktop and Documents are often synced to OneDrive, which
+  would upload ~67 MB of libraries; `AppData\Local` is never synced.
+- **Local disk.** The program starts even when a network drive or server is not
+  available yet.
+- **Out of the way.** The folder is hidden, so it is not deleted or moved by
+  accident.
+
+Any folder on a local disk works if you prefer another one; keep the exe and
+`_internal\` together. After moving it, toggle **Start with Windows** in the
+settings and re-enable the tray icon in Windows' "Other system tray icons",
+because Windows ties both to the exe path. `AppData` is hidden: open the folder
+by pasting `%LOCALAPPDATA%\Programs\mouse_tray` into Explorer's address bar or
+**Win+R**.
+
 ## Run from source
 
 The project is managed with [uv](https://docs.astral.sh/uv/) — a fast Python
@@ -114,7 +149,7 @@ size** slider scales the digits from 50% to 100% of the fitted maximum, and
 taskbar. Font, size and outline changes preview on the tray immediately,
 without closing the dialog.
 
-With **Color by charge level** enabled, the battery-percent indicator is colored
+With **Color by charge level** enabled (the default), the battery-percent indicator is colored
 by charge: the font color above 50%, and two extra pickers appear next to it for
 the low bands — **≤ 50%** (yellow by default) and **≤ 20%** (red by default).
 
@@ -123,7 +158,14 @@ filled to that percent instead of as digits, and the exact number moves to the
 hover tooltip (which also shows the mouse name and time since the last full
 charge). "No mouse", sleep and unknown-level states stay textual either way.
 
-**Start with Windows** adds the program to the current user's sign-in startup
+**Low battery notification** (on by default) shows a Windows notification when
+the charge drops to 20% and again at 10%, once per discharge; charging resets
+it. The **Test** button next to it shows the notification right away, to check
+that Windows lets it through (Settings → System → Notifications, Do not
+disturb).
+
+**Start with Windows** is turned on automatically at the very first start; after
+that the program never changes it again. It adds the program to the current user's sign-in startup
 (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, value `Mouse_Tray`); no
 administrator rights are needed. The checkbox reflects the actual Windows
 state, including the switch on the Startup tab of Task Manager, and is not
@@ -138,7 +180,7 @@ For the full set of fields (including those not exposed in the dialog), edit
 | `poll_rate`        | Seconds between reads while awake & discharging    |
 | `fast_poll_rate`   | Seconds between reads while charging/asleep/absent |
 | `foreground_color` | RGB color of the indicator digits (and the top band) |
-| `dynamic_color`    | Color the percent by charge level                  |
+| `dynamic_color`    | Color the percent by charge level (on)             |
 | `mid_color`        | RGB color of the ≤ 50% band (yellow)               |
 | `low_color`        | RGB color of the ≤ 20% band (red)                  |
 | `battery_icon`     | Draw a filled battery instead of the percent digits |
@@ -146,6 +188,7 @@ For the full set of fields (including those not exposed in the dialog), edit
 | `font`             | Font file for the digits (`consola.ttf`)           |
 | `app_name`         | Storage key: registry subkey + log directory name  |
 | `display_name`     | Human-facing name (tray tooltip, toasts, settings) |
+| `low_battery_notify` | Notify at 20% and 10% (`LOW_WARN_THRESHOLDS`, on) |
 | `debug`            | Verbose DEBUG logging (raw HID reports)            |
 
 ## About

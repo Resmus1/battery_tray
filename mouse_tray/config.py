@@ -28,6 +28,10 @@ YELLOW = (255, 255, 0)
 MID_THRESHOLD = 50
 LOW_THRESHOLD = 20
 
+#: Charge levels (percent) that raise a low-battery notification, each shown
+#: once per discharge.
+LOW_WARN_THRESHOLDS = (20, 10)
+
 #: Text size slider range, in percent of the fitted maximum: TEXT_SIZE_DEFAULT
 #: fills the icon and is the default; lower values shrink.
 TEXT_SIZE_MIN = 50

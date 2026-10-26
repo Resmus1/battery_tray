@@ -21,7 +21,7 @@ from wx.adv import NotificationMessage
 from .. import autostart
 from ..battery import BatteryStatus
 from ..build_info import version_string
-from ..config import GREEN, Config
+from ..config import GREEN, LOW_WARN_THRESHOLDS, Config
 from ..config import config as default_config
 from ..diagnostics import log_startup_diagnostics
 from ..drivers import MouseDriver, detect_all_drivers
@@ -69,6 +69,8 @@ class TrayApp(wx.Frame):
         self.full_charge_date: datetime | None = None
         self._current_mouse: str | None = None
         self._was_full = False
+        #: Low-charge thresholds already warned about since the last charge.
+        self._low_warned: set[int] = set()
 
         # Which mouse the tray shows. The pin (main thread, persisted) wins; with
         # no pin the worker picks one and sticks to it via _auto_key. _drivers
@@ -94,6 +96,7 @@ class TrayApp(wx.Frame):
             on_select_mouse=self._select_mouse,
             on_reset_timer=self._reset_timer,
             on_settings=self._open_settings,
+            on_test_notification=self._test_notification,
             on_about=self._open_about,
             on_exit=self._exit,
         )
@@ -102,6 +105,10 @@ class TrayApp(wx.Frame):
         self.notification = NotificationMessage(title=config.display_name, message="Charged 100%")
         self.notification.SetFlags(wx.ICON_INFORMATION)
         self.notification.UseTaskBarIcon(self.tray)
+
+        self.low_notification = NotificationMessage(title=config.display_name)
+        self.low_notification.SetFlags(wx.ICON_WARNING)
+        self.low_notification.UseTaskBarIcon(self.tray)
 
         # Charge animation runs on the main thread via a timer.
         self._anim_timer = wx.Timer(self)
@@ -248,6 +255,7 @@ class TrayApp(wx.Frame):
 
         if status.charging:
             self._was_full = False
+            self._low_warned.clear()
             self._start_animation(tooltip)
             return
 
@@ -255,6 +263,7 @@ class TrayApp(wx.Frame):
 
         if status.full:
             self.tray.update(self.icons.battery_icon(100, GREEN), tooltip)
+            self._low_warned.clear()
             if not self._was_full:
                 self._was_full = True
                 self._record_full_charge()
@@ -280,6 +289,8 @@ class TrayApp(wx.Frame):
             self.tray.update(self.icons.battery_icon(100), tooltip)
             return
 
+        self._warn_low(name, status.percent)
+
         color = self.config.charge_color(status.percent) if self.config.dynamic_color else None
         battery_icon = self.config.battery_icon
         if self._preview_battery_icon is not None:
@@ -290,6 +301,22 @@ class TrayApp(wx.Frame):
             return
         self.tray.update(self.icons.text_icon(str(status.percent), color), tooltip)
 
+    def _test_notification(self) -> None:
+        """Show the low-charge warning on demand, so Windows' notification setup can be checked."""
+        percent = self._last_status.percent if self._last_status else None
+        self.low_notification.SetMessage(f"Test: battery {percent if percent is not None else '?'}%")
+        self.low_notification.Show(timeout=NotificationMessage.Timeout_Auto)
+
+    def _warn_low(self, name: str | None, percent: int) -> None:
+        """Show one warning per threshold crossed; a reading below several only warns once."""
+        crossed = {t for t in LOW_WARN_THRESHOLDS if percent <= t} - self._low_warned
+        if not crossed:
+            return
+        self._low_warned |= crossed
+        self.low_notification.SetMessage(f"{name or 'Mouse'}: battery low ({percent}%)")
+        self.low_notification.Show(timeout=NotificationMessage.Timeout_Auto)
+        log.info("low battery warning at %d%%", percent)
+
     def _sync_mouse(self, name: str | None) -> None:
         """Load the active mouse's own full-charge date when the mouse changes."""
         if name is None or name == self._current_mouse:
@@ -297,6 +324,7 @@ class TrayApp(wx.Frame):
         from ..storage import load_full_charge_date
 
         self._current_mouse = name
+        self._low_warned.clear()
         self.full_charge_date = load_full_charge_date(self.config.app_name, name)
         self._was_full = False  # don't carry full-state across a mouse switch
 

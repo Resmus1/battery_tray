@@ -38,6 +38,7 @@ class TrayIcon(TaskBarIcon):
         on_select_mouse: Callable[[str | None], None],
         on_reset_timer: Callable[[], None],
         on_settings: Callable[[], None],
+        on_test_notification: Callable[[], None],
         on_about: Callable[[], None],
         on_exit: Callable[[], None],
     ):
@@ -47,6 +48,7 @@ class TrayIcon(TaskBarIcon):
         self._on_select_mouse = on_select_mouse
         self._on_reset_timer = on_reset_timer
         self._on_settings = on_settings
+        self._on_test_notification = on_test_notification
         self._on_about = on_about
         self._on_exit = on_exit
         self.Bind(wx.adv.EVT_TASKBAR_LEFT_DOWN, lambda _evt: self._on_left_click())
@@ -58,6 +60,8 @@ class TrayIcon(TaskBarIcon):
         self.Bind(wx.EVT_MENU, lambda _evt: self._on_reset_timer(), reset_item)
         settings_item = menu.Append(wx.ID_PREFERENCES, "Settings...")
         self.Bind(wx.EVT_MENU, lambda _evt: self._on_settings(), settings_item)
+        test_item = menu.Append(wx.ID_ANY, "Test notification")
+        self.Bind(wx.EVT_MENU, lambda _evt: self._on_test_notification(), test_item)
         about_item = menu.Append(wx.ID_ABOUT, "About...")
         self.Bind(wx.EVT_MENU, lambda _evt: self._on_about(), about_item)
         menu.AppendSeparator()

@@ -11,7 +11,7 @@ VERSION = "0.1.0"
 #: Project identity, shown in the about dialog. Kept here with VERSION so the
 #: dialog has a single source for everything it prints about the app itself.
 DESCRIPTION = "Universal wireless-mouse battery indicator for the Windows system tray."
-HOMEPAGE = "https://github.com/Fan4Metal/mouse_tray"
+HOMEPAGE = "https://github.com/Resmus1/mouse_tray"
 
 #: Author, stamped into the exe's version resource (CompanyName and
 #: LegalCopyright) by tools/make_release.py.

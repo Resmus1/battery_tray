@@ -125,3 +125,73 @@ no `.spec` edit needed.
   **`app_name`** is the stable storage/identity key (registry subkey + log dir —
   do not change casually) while **`display_name`** is the human-facing label
   (tooltip, toasts, settings title) and is free to change.
+
+## Форк Resmus1/mouse_tray
+
+Это форк [Fan4Metal/mouse_tray](https://github.com/Fan4Metal/mouse_tray). Сверх
+оригинала: уведомления о разряде (пороги, повтор, кнопка «Тест»), оценка
+оставшегося времени ([`estimate.py`](mouse_tray/estimate.py)), русский интерфейс
+([`i18n.py`](mouse_tray/i18n.py)), настройки по разделам, сборка релизов в
+GitHub Actions. Новые строки интерфейса пишутся на английском через `tr()`, а
+перевод добавляется в таблицу `_RU` в `i18n.py`.
+
+### Пути
+
+- Репозиторий: `Z:\home-projects\mouse_tray`, то же самое, что
+  `\192.168.3.10\tank\home-projects\mouse_tray`; на сервере это
+  `/tank/storage/home-projects/mouse_tray`.
+- Remotes: `origin` — `Resmus1/mouse_tray` (ветка `master`), `upstream` —
+  `Fan4Metal/mouse_tray`. Обновления автора: `git pull upstream master`.
+- Установленная программа: `%LOCALAPPDATA%\Programs\mouse_tray`
+  (`mouse_tray.exe` + `_internal\`). Лог: `%LOCALAPPDATA%\Mouse_Tray\app.log`.
+  Реестр: `HKCU\SOFTWARE\Mouse_Tray\` (`Settings`, `FullCharge`, `Discharge`).
+- Git на сетевой папке требует `safe.directory` для этого пути: если его нет,
+  передать разово через `git -c safe.directory=...`, а в глобальный конфиг
+  пользователь добавляет его сам. `.venv` и сборку на сервере не держать:
+  собирать и тестировать в локальном клоне во `%TEMP%`, потом удалить его.
+
+### Сборка и релиз
+
+1. Поднять `VERSION` в [`config.py`](mouse_tray/config.py).
+2. Закоммитить, `git push origin master`.
+3. `git tag -a vX.Y.Z -m "mouse_tray X.Y.Z"` и `git push origin vX.Y.Z`.
+4. [`.github/workflows/release.yml`](.github/workflows/release.yml) собирает exe
+   на `windows-latest` по `uv.lock` (Python 3.14, wxPython 4.2.5) и создаёт
+   Release с `mouse_tray-vX.Y.Z.zip`. Следить: `gh run watch`.
+
+Локально: `uv sync --extra build`, затем `uv run python tools/make_release.py`.
+Если uv не может поставить Python в профиль пользователя, задать
+`UV_PYTHON_INSTALL_DIR` на локальную папку.
+
+### Установка и обновление
+
+Закрыть программу (меню в трее → Exit), распаковать zip из Release и заменить
+содержимое `%LOCALAPPDATA%\Programs\mouse_tray`, например
+`robocopy <распакованная>\mouse_tray %LOCALAPPDATA%\Programs\mouse_tray /MIR`;
+потом запустить exe. Путь не менять: Windows привязывает к пути exe и
+автозапуск, и включение значка в «Других значках в системном трее». При смене
+пути их приходится включать заново.
+
+### Проверка перед релизом
+
+- **Тестировать на wxPython 4.2.5**, в окружении из `uv.lock`. Свежий
+  `pip install wxpython` ставит 4.3, где есть API, которых нет в 4.2.5:
+  `StdDialogButtonSizer.GetAffirmativeButton()` прошёл тесты на 4.3 и уронил
+  окно настроек в релизе.
+- У exe нет консоли: необработанные ошибки пишутся в `app.log` через
+  `sys.excepthook`. Смотреть туда, а не ждать трейсбека.
+- Не импортировать модули, исключённые в `EXCLUDES` в
+  [`tools/make_release.py`](tools/make_release.py): например, `statistics`
+  тянет `decimal`, поэтому в `estimate.py` своя медиана.
+- Вёрстку окон проверять скриншотом: показать диалог, снять его через
+  `PIL.ImageGrab` и посмотреть оба языка.
+- `ruff check mouse_tray`: в коде автора 28 старых замечаний, новых не
+  добавлять.
+- Окончания строк у файлов разные (часть в CRLF), сохранять как есть.
+
+### Коммиты
+
+- Без строк `Co-Authored-By: Claude …` и `Generated with Claude Code` в
+  коммитах и PR.
+- Автор задан в `.git/config` репозитория: `Re$mus
+  <156493623+Resmus1@users.noreply.github.com>` (скрытая почта GitHub).

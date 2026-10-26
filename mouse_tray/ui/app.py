@@ -557,6 +557,9 @@ def run(config: Config | None = None) -> None:
     load_settings(cfg.app_name, cfg)  # apply any persisted user settings
     set_language(cfg.language)
     setup_logging(cfg.app_name, cfg.debug)
+    # The exe has no console: without this an exception in a menu or dialog
+    # handler vanishes (or takes the process down) without a trace in app.log.
+    sys.excepthook = lambda kind, value, tb: log.error("Unhandled error", exc_info=(kind, value, tb))
     log.info("Starting %s %s from %s", cfg.display_name, version_string(), sys.executable)
     log_startup_diagnostics()
     autostart.repair(cfg.app_name)  # follow the program if its folder moved

@@ -250,8 +250,12 @@ class _SettingsDialog(wx.Dialog):
         show_log.SetToolTip(tr("Open app.log -- attach it when reporting a problem."))
         show_log.Bind(wx.EVT_BUTTON, lambda _evt: open_log(config.app_name))
         buttons = self.CreateStdDialogButtonSizer(wx.OK | wx.CANCEL)
-        buttons.GetAffirmativeButton().SetLabel(tr("OK"))
-        buttons.GetCancelButton().SetLabel(tr("Cancel"))
+        # By id, not GetAffirmativeButton(): wxPython 4.2 (the release build's
+        # pinned version) has only the setters.
+        for button_id, label in ((wx.ID_OK, "OK"), (wx.ID_CANCEL, "Cancel")):
+            button = self.FindWindowById(button_id, self)
+            if button is not None:
+                button.SetLabel(tr(label))
 
         bottom = wx.BoxSizer(wx.HORIZONTAL)
         bottom.Add(reset, 0)

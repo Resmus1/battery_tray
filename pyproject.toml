@@ -60,3 +60,7 @@ ignore = [
 #   DTZ -- the full-charge timestamps are local wall-clock by design: they are
 #     shown to the user and stored in the registry in a local-time format.
 #     Making them tz-aware would invalidate every already-stored value.
+
+[tool.ruff.lint.per-file-ignores]
+# The Russian UI table is Cyrillic on purpose; RUF001 reads it as look-alike Latin.
+"mouse_tray/i18n.py" = ["RUF001"]

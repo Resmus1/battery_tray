@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 #: Application version, shown in the settings and about dialogs. Single source
 #: for the runtime version (re-exported as ``mouse_tray.__version__``).
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
 #: Project identity, shown in the about dialog. Kept here with VERSION so the
 #: dialog has a single source for everything it prints about the app itself.
@@ -27,10 +27,6 @@ YELLOW = (255, 255, 0)
 #: Charge thresholds (percent) for the two low bands of ``dynamic_color``.
 MID_THRESHOLD = 50
 LOW_THRESHOLD = 20
-
-#: Charge levels (percent) that raise a low-battery notification, each shown
-#: once per discharge.
-LOW_WARN_THRESHOLDS = (20, 10)
 
 #: Text size slider range, in percent of the fitted maximum: TEXT_SIZE_DEFAULT
 #: fills the icon and is the default; lower values shrink.
@@ -82,7 +78,13 @@ class Config:
                           settings-dialog title). Change this freely; it does not
                           affect any stored path.
         low_battery_notify: Show a Windows notification when the charge drops to
-                          each of ``LOW_WARN_THRESHOLDS``.
+                          ``notify_level_high`` and again at ``notify_level_low``.
+        notify_level_high: First low-battery notification, percent.
+        notify_level_low: Second low-battery notification, percent.
+        notify_repeat_minutes: While at or below ``notify_level_low``, repeat
+                          the notification this often; 0 disables repeats.
+        language:         UI language: ``"auto"`` (Windows display language),
+                          ``"en"`` or ``"ru"``.
         debug:            Enable verbose DEBUG logging (raw HID reports). Can
                           also be turned on via the MOUSE_TRAY_DEBUG env var.
     """
@@ -101,6 +103,10 @@ class Config:
     app_name: str = "Mouse_Tray"
     display_name: str = "Mouse Tray"
     low_battery_notify: bool = True
+    notify_level_high: int = 20
+    notify_level_low: int = 10
+    notify_repeat_minutes: int = 15
+    language: str = "auto"
     debug: bool = False
 
     def charge_color(self, percent: int) -> tuple[int, int, int]:

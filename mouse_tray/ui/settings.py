@@ -27,7 +27,8 @@ from PIL import ImageFont
 
 from .. import autostart
 from ..build_info import version_string
-from ..config import LOW_THRESHOLD, LOW_WARN_THRESHOLDS, MID_THRESHOLD, TEXT_SIZE_MAX, TEXT_SIZE_MIN, Config
+from ..config import LOW_THRESHOLD, MID_THRESHOLD, TEXT_SIZE_MAX, TEXT_SIZE_MIN, Config
+from ..i18n import LANGUAGES, tr
 from ..logging_setup import open_log
 from ..resources import icon_path
 
@@ -179,16 +180,17 @@ class _SettingsDialog(wx.Dialog):
         preview: PreviewHooks,
         on_test_notification: Callable[[], None] | None = None,
     ):
-        super().__init__(parent, title=f"{config.display_name} {version_string()} settings")
+        title = tr("{name} {version} settings", name=config.display_name, version=version_string())
+        super().__init__(parent, title=title)
         self.SetIcon(wx.Icon(icon_path("app.ico")))
         self._preview = preview
 
         self._all_faces, self._mono_faces, self._face_to_path, self._path_to_face = _collect_faces()
 
-        grid = wx.FlexGridSizer(rows=11, cols=2, vgap=8, hgap=8)
+        grid = wx.FlexGridSizer(rows=0, cols=2, vgap=8, hgap=8)
         grid.AddGrowableCol(1, 1)
 
-        grid.Add(wx.StaticText(self, label="Poll interval (s):"), 0, wx.ALIGN_CENTER_VERTICAL)
+        grid.Add(wx.StaticText(self, label=tr("Poll interval (s):")), 0, wx.ALIGN_CENTER_VERTICAL)
         self._poll = wx.SpinCtrl(self, min=1, max=3600, initial=int(config.poll_rate))
         grid.Add(self._poll, 0, wx.EXPAND)
 
@@ -211,9 +213,13 @@ class _SettingsDialog(wx.Dialog):
             grid,
             "Color by charge level:",
             config.dynamic_color,
-            "Color the battery percent by charge: the font color\n"
-            f"above {MID_THRESHOLD}%, then the two colors picked next to it\n"
-            f"at ≤ {MID_THRESHOLD}% and ≤ {LOW_THRESHOLD}%.",
+            tr(
+                "Color the battery percent by charge: the font color\n"
+                "above {mid}%, then the two colors picked next to it\n"
+                "at ≤ {mid}% and ≤ {low}%.",
+                mid=MID_THRESHOLD,
+                low=LOW_THRESHOLD,
+            ),
         )
         self._dynamic_color.Bind(wx.EVT_CHECKBOX, self._on_dynamic_color)
         self._battery_icon = self._add_checkbox(
@@ -225,7 +231,8 @@ class _SettingsDialog(wx.Dialog):
             "tray tooltip.",
         )
         self._battery_icon.Bind(wx.EVT_CHECKBOX, self._on_battery_icon)
-        self._build_notify_row(grid, config.low_battery_notify, on_test_notification)
+        self._build_notify_rows(grid, config, on_test_notification)
+        self._build_language_row(grid, config.language)
         self._app_name = config.app_name
         self._autostart_was = autostart.is_enabled(config.app_name)
         self._autostart = self._add_checkbox(
@@ -237,12 +244,14 @@ class _SettingsDialog(wx.Dialog):
         )
         self._debug = self._add_checkbox(grid, "Debug logging:", config.debug)
 
-        reset = wx.Button(self, label="Reset to defaults")
+        reset = wx.Button(self, label=tr("Reset to defaults"))
         reset.Bind(wx.EVT_BUTTON, self._on_reset)
-        show_log = wx.Button(self, label="Open log")
-        show_log.SetToolTip("Open app.log -- attach it when reporting a problem.")
+        show_log = wx.Button(self, label=tr("Open log"))
+        show_log.SetToolTip(tr("Open app.log -- attach it when reporting a problem."))
         show_log.Bind(wx.EVT_BUTTON, lambda _evt: open_log(config.app_name))
         buttons = self.CreateStdDialogButtonSizer(wx.OK | wx.CANCEL)
+        buttons.GetAffirmativeButton().SetLabel(tr("OK"))
+        buttons.GetCancelButton().SetLabel(tr("Cancel"))
 
         bottom = wx.BoxSizer(wx.HORIZONTAL)
         bottom.Add(reset, 0)
@@ -270,10 +279,11 @@ class _SettingsDialog(wx.Dialog):
         self, grid: wx.FlexGridSizer, label: str, value: bool, tip: str | None = None
     ) -> wx.CheckBox:
         """Append a labelled checkbox row; the tooltip covers both cells."""
-        text = wx.StaticText(self, label=label)
+        text = wx.StaticText(self, label=tr(label))
         box = wx.CheckBox(self)
         box.SetValue(value)
         if tip:
+            tip = tr(tip)
             text.SetToolTip(tip)
             box.SetToolTip(tip)
         grid.Add(text, 0, wx.ALIGN_CENTER_VERTICAL)
@@ -282,7 +292,7 @@ class _SettingsDialog(wx.Dialog):
 
     def _build_font_section(self, grid: wx.FlexGridSizer) -> None:
         """Append the font picker row and the "Show all fonts" checkbox."""
-        self._font_label = wx.StaticText(self, label="Font (monospaced):")
+        self._font_label = wx.StaticText(self, label=tr("Font (monospaced):"))
         grid.Add(self._font_label, 0, wx.ALIGN_CENTER_VERTICAL)
         self._font = _FontPicker(self, list(self._all_faces))
         self._font.Bind(wx.EVT_COMBOBOX, self._on_font_selected)
@@ -297,37 +307,67 @@ class _SettingsDialog(wx.Dialog):
         )
         self._all_fonts.Bind(wx.EVT_CHECKBOX, self._on_all_fonts)
 
-    def _build_notify_row(
-        self, grid: wx.FlexGridSizer, value: bool, on_test: Callable[[], None] | None
+    def _build_notify_rows(
+        self, grid: wx.FlexGridSizer, config: Config, on_test: Callable[[], None] | None
     ) -> None:
-        """Append the low-battery notification checkbox with its "Test" button."""
-        levels = " and ".join(f"{t}%" for t in LOW_WARN_THRESHOLDS)
-        tip = f"Show a Windows notification when the charge drops to {levels}."
-        text = wx.StaticText(self, label="Low battery notification:")
+        """Append the low-battery notification switch, its levels and repeat interval."""
+        levels = tr("{high}% and {low}%", high=config.notify_level_high, low=config.notify_level_low)
+        tip = tr("Show a Windows notification when the charge drops to {levels}.", levels=levels)
+        text = wx.StaticText(self, label=tr("Low battery notification:"))
         text.SetToolTip(tip)
         self._low_battery_notify = wx.CheckBox(self)
-        self._low_battery_notify.SetValue(value)
+        self._low_battery_notify.SetValue(config.low_battery_notify)
         self._low_battery_notify.SetToolTip(tip)
         row = wx.BoxSizer(wx.HORIZONTAL)
         row.Add(self._low_battery_notify, 0, wx.ALIGN_CENTER_VERTICAL)
         if on_test is not None:
-            test = wx.Button(self, label="Test")
-            test.SetToolTip("Show the notification now to check the Windows notification settings.")
+            test = wx.Button(self, label=tr("Test"))
+            test.SetToolTip(tr("Show the notification now to check the Windows notification settings."))
             test.Bind(wx.EVT_BUTTON, lambda _evt: on_test())
             row.Add(test, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 12)
         grid.Add(text, 0, wx.ALIGN_CENTER_VERTICAL)
         grid.Add(row, 0, wx.ALIGN_CENTER_VERTICAL)
 
+        grid.Add(wx.StaticText(self, label=tr("Notify at (%):")), 0, wx.ALIGN_CENTER_VERTICAL)
+        self._notify_high = wx.SpinCtrl(self, min=1, max=99, initial=config.notify_level_high)
+        self._notify_low = wx.SpinCtrl(self, min=1, max=99, initial=config.notify_level_low)
+        levels_row = wx.BoxSizer(wx.HORIZONTAL)
+        levels_row.Add(self._notify_high, 0, wx.ALIGN_CENTER_VERTICAL)
+        and_label = wx.StaticText(self, label=tr("and"))
+        levels_row.Add(and_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT | wx.RIGHT, 8)
+        levels_row.Add(self._notify_low, 0, wx.ALIGN_CENTER_VERTICAL)
+        grid.Add(levels_row, 0, wx.ALIGN_CENTER_VERTICAL)
+
+        repeat_tip = tr(
+            "While the charge stays at or below the lower level, repeat the\n"
+            "notification every this many minutes. 0 turns repeats off."
+        )
+        repeat_label = wx.StaticText(self, label=tr("Repeat below lower level (min):"))
+        repeat_label.SetToolTip(repeat_tip)
+        self._notify_repeat = wx.SpinCtrl(self, min=0, max=1440, initial=config.notify_repeat_minutes)
+        self._notify_repeat.SetToolTip(repeat_tip)
+        grid.Add(repeat_label, 0, wx.ALIGN_CENTER_VERTICAL)
+        grid.Add(self._notify_repeat, 0, wx.ALIGN_CENTER_VERTICAL)
+
+    def _build_language_row(self, grid: wx.FlexGridSizer, language: str) -> None:
+        """Append the interface language picker (applies when the dialog closes)."""
+        grid.Add(wx.StaticText(self, label=tr("Language:")), 0, wx.ALIGN_CENTER_VERTICAL)
+        names = [tr(name) if code == "auto" else name for code, name in LANGUAGES.items()]
+        self._language = wx.Choice(self, choices=names)
+        codes = list(LANGUAGES)
+        self._language.SetSelection(codes.index(language) if language in codes else 0)
+        grid.Add(self._language, 0, wx.ALIGN_CENTER_VERTICAL)
+
     def _build_size_row(self, grid: wx.FlexGridSizer, text_size: int) -> None:
         """Append the text-size slider row with its live percent label."""
-        grid.Add(wx.StaticText(self, label="Text size:"), 0, wx.ALIGN_CENTER_VERTICAL)
+        grid.Add(wx.StaticText(self, label=tr("Text size:")), 0, wx.ALIGN_CENTER_VERTICAL)
         size_value = min(TEXT_SIZE_MAX, max(TEXT_SIZE_MIN, text_size))
         self._size = wx.Slider(
             self, minValue=TEXT_SIZE_MIN, maxValue=TEXT_SIZE_MAX, value=size_value,
             style=wx.SL_HORIZONTAL,
         )
         self._size.SetToolTip(
-            "Scale the tray digits.\n100% fills the icon; lower values shrink."
+            tr("Scale the tray digits.\n100% fills the icon; lower values shrink.")
         )
         self._size_label = wx.StaticText(self, label=f"{size_value}%")
         # Reserve the widest value's width so the row never jumps; measured in
@@ -343,7 +383,7 @@ class _SettingsDialog(wx.Dialog):
 
     def _build_color_row(self, grid: wx.FlexGridSizer, config: Config) -> None:
         """Append the font color picker with its low-band pickers."""
-        grid.Add(wx.StaticText(self, label="Font color:"), 0, wx.ALIGN_CENTER_VERTICAL)
+        grid.Add(wx.StaticText(self, label=tr("Font color:")), 0, wx.ALIGN_CENTER_VERTICAL)
         self._color = wx.ColourPickerCtrl(self, colour=wx.Colour(*config.foreground_color))
         self._mid_color = wx.ColourPickerCtrl(self, colour=wx.Colour(*config.mid_color))
         self._low_color = wx.ColourPickerCtrl(self, colour=wx.Colour(*config.low_color))
@@ -386,7 +426,7 @@ class _SettingsDialog(wx.Dialog):
         self._font.set_faces(faces)
         if keep in faces:
             self._font.SetStringSelection(keep)
-        self._font_label.SetLabel("Font:" if show_all else "Font (monospaced):")
+        self._font_label.SetLabel(tr("Font:") if show_all else tr("Font (monospaced):"))
 
     def _update_bands(self) -> None:
         """Show the low-band pickers only while "Color by charge level" is on."""
@@ -471,6 +511,10 @@ class _SettingsDialog(wx.Dialog):
         self._battery_icon.SetValue(defaults.battery_icon)
         self._emit_battery_icon_preview()
         self._low_battery_notify.SetValue(defaults.low_battery_notify)
+        self._notify_high.SetValue(defaults.notify_level_high)
+        self._notify_low.SetValue(defaults.notify_level_low)
+        self._notify_repeat.SetValue(defaults.notify_repeat_minutes)
+        self._language.SetSelection(list(LANGUAGES).index(defaults.language))
         self._debug.SetValue(defaults.debug)
         # Autostart is left alone: it is a system integration, not a
         # look-and-feel default, and it never lived in Config.
@@ -482,8 +526,8 @@ class _SettingsDialog(wx.Dialog):
                 ImageFont.truetype(self._face_to_path[face], 16)
             except OSError:
                 wx.MessageBox(
-                    f"Could not load font {face!r}.\nPlease choose another.",
-                    "Invalid font",
+                    tr("Could not load font {face!r}.\nPlease choose another.", face=face),
+                    tr("Invalid font"),
                     wx.OK | wx.ICON_ERROR,
                     self,
                 )
@@ -501,8 +545,8 @@ class _SettingsDialog(wx.Dialog):
             autostart.set_enabled(self._app_name, wanted)
         except OSError as exc:
             wx.MessageBox(
-                f"Could not change the autostart setting:\n{exc}",
-                "Start with Windows",
+                tr("Could not change the autostart setting:\n{exc}", exc=exc),
+                tr("Start with Windows"),
                 wx.OK | wx.ICON_ERROR,
                 self,
             )
@@ -524,4 +568,8 @@ class _SettingsDialog(wx.Dialog):
         config.dynamic_color = self._dynamic_color.GetValue()
         config.battery_icon = self._battery_icon.GetValue()
         config.low_battery_notify = self._low_battery_notify.GetValue()
+        high, low = self._notify_high.GetValue(), self._notify_low.GetValue()
+        config.notify_level_high, config.notify_level_low = max(high, low), min(high, low)
+        config.notify_repeat_minutes = self._notify_repeat.GetValue()
+        config.language = list(LANGUAGES)[self._language.GetSelection()]
         config.debug = self._debug.GetValue()

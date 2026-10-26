@@ -12,6 +12,7 @@ import winreg
 from datetime import datetime
 
 from .config import TEXT_SIZE_MAX, TEXT_SIZE_MIN, Config
+from .i18n import LANGUAGES
 
 _DATE_FORMAT = "%d.%m.%Y %H:%M:%S"
 
@@ -48,6 +49,33 @@ def load_full_charge_date(app_name: str, mouse: str) -> datetime | None:
         return datetime.strptime(value, _DATE_FORMAT)
     except (OSError, ValueError):
         return None
+
+
+# --- discharge history (remaining-time estimate) ---------------------------
+
+
+def _discharge_path(app_name: str) -> str:
+    return rf"SOFTWARE\{app_name}\Discharge"
+
+
+def save_discharge_stretches(app_name: str, mouse: str, stretches: list[float]) -> None:
+    """Persist ``mouse``'s recent seconds-per-percent measurements."""
+    try:
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, _discharge_path(app_name)) as key:
+            value = ",".join(f"{s:.0f}" for s in stretches)
+            winreg.SetValueEx(key, _value_name(mouse), 0, winreg.REG_SZ, value)
+    except OSError as exc:
+        log.warning("Could not save discharge history for %s: %s", mouse, exc)
+
+
+def load_discharge_stretches(app_name: str, mouse: str) -> list[float]:
+    """Read ``mouse``'s stored discharge measurements (empty when none)."""
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _discharge_path(app_name), 0, winreg.KEY_READ) as key:
+            value = str(winreg.QueryValueEx(key, _value_name(mouse))[0])
+        return [float(part) for part in value.split(",") if part and float(part) > 0]
+    except (OSError, ValueError):
+        return []
 
 
 # --- user settings (poll rate, font, size, color, debug) ------------------
@@ -97,12 +125,17 @@ def save_settings(app_name: str, config: Config) -> None:
             winreg.SetValueEx(key, "BatteryIcon", 0, winreg.REG_DWORD, 1 if config.battery_icon else 0)
             notify = 1 if config.low_battery_notify else 0
             winreg.SetValueEx(key, "LowBatteryNotify", 0, winreg.REG_DWORD, notify)
+            winreg.SetValueEx(key, "NotifyHigh", 0, winreg.REG_DWORD, int(config.notify_level_high))
+            winreg.SetValueEx(key, "NotifyLow", 0, winreg.REG_DWORD, int(config.notify_level_low))
+            repeat = int(config.notify_repeat_minutes)
+            winreg.SetValueEx(key, "NotifyRepeatMin", 0, winreg.REG_DWORD, repeat)
+            winreg.SetValueEx(key, "Language", 0, winreg.REG_SZ, config.language)
             winreg.SetValueEx(key, "Debug", 0, winreg.REG_DWORD, 1 if config.debug else 0)
     except OSError as exc:
         log.warning("Could not save settings: %s", exc)
 
 
-def load_settings(app_name: str, config: Config) -> None:
+def load_settings(app_name: str, config: Config) -> None:  # noqa: PLR0912 -- one guard per setting
     """Apply persisted settings onto ``config`` in place.
 
     Missing or invalid values are skipped so each field keeps its code default.
@@ -151,6 +184,22 @@ def load_settings(app_name: str, config: Config) -> None:
         low_battery_notify = _read_int(key, "LowBatteryNotify")
         if low_battery_notify is not None:
             config.low_battery_notify = bool(low_battery_notify)
+
+        notify_high = _read_int(key, "NotifyHigh")
+        if notify_high is not None and 1 <= notify_high <= 99:
+            config.notify_level_high = notify_high
+
+        notify_low = _read_int(key, "NotifyLow")
+        if notify_low is not None and 1 <= notify_low <= 99:
+            config.notify_level_low = notify_low
+
+        repeat = _read_int(key, "NotifyRepeatMin")
+        if repeat is not None and 0 <= repeat <= 1440:
+            config.notify_repeat_minutes = repeat
+
+        language = _read_str(key, "Language")
+        if language in LANGUAGES:
+            config.language = language
 
         debug = _read_int(key, "Debug")
         if debug is not None:

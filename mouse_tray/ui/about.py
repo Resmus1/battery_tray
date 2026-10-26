@@ -16,6 +16,7 @@ import wx.adv
 from ..build_info import version_string
 from ..config import DESCRIPTION, HOMEPAGE, Config
 from ..drivers import MouseModel, all_drivers
+from ..i18n import tr
 from ..resources import icon_path
 
 _COLUMNS = ("Mouse", "USB ID", "Protocol")
@@ -75,7 +76,7 @@ def driver_notes() -> list[str]:
 
 class _AboutDialog(wx.Dialog):
     def __init__(self, parent: wx.Window, config: Config):
-        super().__init__(parent, title=f"About {config.display_name}")
+        super().__init__(parent, title=tr("About {name}", name=config.display_name))
         self.SetIcon(wx.Icon(icon_path("app.ico")))
 
         outer = wx.BoxSizer(wx.VERTICAL)
@@ -85,7 +86,7 @@ class _AboutDialog(wx.Dialog):
         # "devices", not "mice": a row is one USB id, and some of them are
         # receivers -- seven Lightspeed dongles carry the same mouse name.
         mice = supported_mice()
-        label = wx.StaticText(self, label=f"Supported devices ({len(mice)}):")
+        label = wx.StaticText(self, label=tr("Supported devices ({count}):", count=len(mice)))
         outer.Add(label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 12)
         outer.Add(_MouseList(self, mice, self.FromDIP(_LIST_SIZE)), 1, wx.EXPAND | wx.ALL, 12)
 
@@ -121,7 +122,7 @@ class _AboutDialog(wx.Dialog):
         font.SetWeight(wx.FONTWEIGHT_BOLD)
         title.SetFont(font)
 
-        description = wx.StaticText(self, label=DESCRIPTION)
+        description = wx.StaticText(self, label=tr(DESCRIPTION))
         description.Wrap(self.FromDIP(360))
 
         column = wx.BoxSizer(wx.VERTICAL)
@@ -148,7 +149,7 @@ class _MouseList(wx.ListCtrl):
         self._sorted_by: int | None = None
         self._ascending = True
 
-        for title in _COLUMNS:
+        for title in map(tr, _COLUMNS):
             self.AppendColumn(title)
         self._fill(rows)
         self._fit_columns()

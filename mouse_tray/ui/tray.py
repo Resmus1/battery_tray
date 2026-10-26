@@ -8,6 +8,8 @@ from dataclasses import dataclass
 import wx
 from wx.adv import TaskBarIcon
 
+from ..i18n import tr
+
 
 @dataclass(frozen=True)
 class MouseChoice:
@@ -54,14 +56,14 @@ class TrayIcon(TaskBarIcon):
     def CreatePopupMenu(self) -> wx.Menu:  # noqa: N802 (wx override)
         menu = wx.Menu()
         self._append_mice(menu)
-        reset_item = menu.Append(wx.ID_ANY, "Reset timer")
+        reset_item = menu.Append(wx.ID_ANY, tr("Reset timer"))
         self.Bind(wx.EVT_MENU, lambda _evt: self._on_reset_timer(), reset_item)
-        settings_item = menu.Append(wx.ID_PREFERENCES, "Settings...")
+        settings_item = menu.Append(wx.ID_PREFERENCES, tr("Settings..."))
         self.Bind(wx.EVT_MENU, lambda _evt: self._on_settings(), settings_item)
-        about_item = menu.Append(wx.ID_ABOUT, "About...")
+        about_item = menu.Append(wx.ID_ABOUT, tr("About..."))
         self.Bind(wx.EVT_MENU, lambda _evt: self._on_about(), about_item)
         menu.AppendSeparator()
-        exit_item = menu.Append(wx.ID_EXIT, "Exit")
+        exit_item = menu.Append(wx.ID_EXIT, tr("Exit"))
         self.Bind(wx.EVT_MENU, lambda _evt: self._on_exit(), exit_item)
         return menu
 
@@ -76,7 +78,7 @@ class TrayIcon(TaskBarIcon):
         if len(choices) < 2 and not pinned:
             return
 
-        auto_item = menu.AppendRadioItem(wx.ID_ANY, "Auto")
+        auto_item = menu.AppendRadioItem(wx.ID_ANY, tr("Auto"))
         auto_item.Check(not pinned)
         self.Bind(wx.EVT_MENU, lambda _evt: self._on_select_mouse(None), auto_item)
         for choice in choices:

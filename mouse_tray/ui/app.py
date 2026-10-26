@@ -12,6 +12,7 @@ import ctypes
 import logging
 import sys
 import threading
+import time
 from contextlib import suppress
 from datetime import datetime, timedelta
 
@@ -21,10 +22,12 @@ from wx.adv import NotificationMessage
 from .. import autostart
 from ..battery import BatteryStatus
 from ..build_info import version_string
-from ..config import GREEN, LOW_WARN_THRESHOLDS, Config
+from ..config import GREEN, Config
 from ..config import config as default_config
 from ..diagnostics import log_startup_diagnostics
 from ..drivers import MouseDriver, detect_all_drivers
+from ..estimate import DischargeEstimator
+from ..i18n import set_language, tr
 from ..logging_setup import setup_logging
 from .devnotify import DeviceChangeWatcher
 from .icons import IconRenderer, tray_icon_size
@@ -45,7 +48,19 @@ def format_timedelta(delta: timedelta) -> str:
     seconds = int(delta.total_seconds()) - days * 86400
     hours, remainder = divmod(seconds, 3600)
     minutes, secs = divmod(remainder, 60)
-    return f"{days} days, {hours:02d}:{minutes:02d}:{secs:02d}"
+    return tr("{days} days, {time}", days=days, time=f"{hours:02d}:{minutes:02d}:{secs:02d}")
+
+
+def format_left(seconds: float) -> str:
+    """Remaining runtime, coarse on purpose: ``"1 d 4 h"``, ``"3 h 20 min"``, ``"40 min"``."""
+    minutes = int(seconds // 60)
+    days, minutes = divmod(minutes, 24 * 60)
+    hours, minutes = divmod(minutes, 60)
+    if days:
+        return tr("{d} d {h} h", d=days, h=hours)
+    if hours:
+        return tr("{h} h {m} min", h=hours, m=minutes // 10 * 10)
+    return tr("{m} min", m=max(minutes, 1))
 
 
 class TrayApp(wx.Frame):
@@ -71,6 +86,9 @@ class TrayApp(wx.Frame):
         self._was_full = False
         #: Low-charge thresholds already warned about since the last charge.
         self._low_warned: set[int] = set()
+        self._last_low_notify = 0.0
+        #: Remaining-time estimate for the active mouse (see estimate.py).
+        self._estimator = DischargeEstimator()
 
         # Which mouse the tray shows. The pin (main thread, persisted) wins; with
         # no pin the worker picks one and sticks to it via _auto_key. _drivers
@@ -209,8 +227,8 @@ class TrayApp(wx.Frame):
         """
         choices = [MouseChoice(key, name, key == self._pinned_key) for key, name in self._available]
         if self._pinned_key is not None and not any(choice.selected for choice in choices):
-            name = self._pinned_name or "Pinned mouse"
-            choices.append(MouseChoice(self._pinned_key, f"{name} ({_NOT_CONNECTED.lower()})", True))
+            name = self._pinned_name or tr("Pinned mouse")
+            choices.append(MouseChoice(self._pinned_key, f"{name} ({tr(_NOT_CONNECTED).lower()})", True))
         return choices
 
     def _select_mouse(self, key: str | None) -> None:
@@ -246,10 +264,11 @@ class TrayApp(wx.Frame):
             self._was_full = False
             # A name here means a pinned mouse that is simply not connected --
             # worth saying, since "-" alone reads as "the app found nothing".
-            tooltip = _NO_MOUSE if name is None else f"{name}\n{_NOT_CONNECTED}"
+            tooltip = tr(_NO_MOUSE) if name is None else f"{name}\n{tr(_NOT_CONNECTED)}"
             self.tray.update(self.icons.text_icon("-"), tooltip)
             return
 
+        self._track_discharge(status)
         tooltip = self._tooltip(name, status)
 
         if status.charging:
@@ -266,6 +285,7 @@ class TrayApp(wx.Frame):
             if not self._was_full:
                 self._was_full = True
                 self._record_full_charge()
+                self.notification.SetMessage(tr("Charged 100%"))
                 self.notification.Show(timeout=NotificationMessage.Timeout_Auto)
             return
 
@@ -303,30 +323,55 @@ class TrayApp(wx.Frame):
     def _test_notification(self) -> None:
         """Show the low-charge warning on demand, so Windows' notification setup can be checked."""
         percent = self._last_status.percent if self._last_status else None
-        self.low_notification.SetMessage(f"Test: battery {percent if percent is not None else '?'}%")
+        shown = "?" if percent is None else percent
+        self.low_notification.SetMessage(tr("Test: battery {percent}%", percent=shown))
         self.low_notification.Show(timeout=NotificationMessage.Timeout_Auto)
 
     def _warn_low(self, name: str | None, percent: int) -> None:
-        """Show one warning per threshold crossed; a reading below several only warns once."""
+        """Warn once per level crossed, then repeat while at or below the lower level."""
         if not self.config.low_battery_notify:
             return
-        crossed = {t for t in LOW_WARN_THRESHOLDS if percent <= t} - self._low_warned
-        if not crossed:
+        levels = {self.config.notify_level_high, self.config.notify_level_low}
+        crossed = {level for level in levels if percent <= level} - self._low_warned
+        now = time.time()
+        repeat = self.config.notify_repeat_minutes * 60
+        if crossed:
+            self._low_warned |= crossed
+        elif not (repeat and percent <= min(levels) and now - self._last_low_notify >= repeat):
             return
-        self._low_warned |= crossed
-        self.low_notification.SetMessage(f"{name or 'Mouse'}: battery low ({percent}%)")
+        self._last_low_notify = now
+        self.low_notification.SetMessage(
+            tr("{name}: battery low ({percent}%)", name=name or tr("Mouse"), percent=percent)
+        )
         self.low_notification.Show(timeout=NotificationMessage.Timeout_Auto)
         log.info("low battery warning at %d%%", percent)
+
+    def _track_discharge(self, status: BatteryStatus) -> None:
+        """Feed the remaining-time estimate; charging only closes the open stretch."""
+        if not _discharging(status) or status.percent is None:
+            self._estimator.reset()
+            return
+        if self._estimator.add(time.time(), status.percent) and self._current_mouse:
+            from ..storage import save_discharge_stretches
+
+            save_discharge_stretches(self.config.app_name, self._current_mouse, self._estimator.stretches)
+            log.info(
+                "%s discharge: %.0f s per percent (last %d stretches)",
+                self._current_mouse,
+                self._estimator.seconds_per_percent(time.time()) or 0,
+                len(self._estimator.stretches),
+            )
 
     def _sync_mouse(self, name: str | None) -> None:
         """Load the active mouse's own full-charge date when the mouse changes."""
         if name is None or name == self._current_mouse:
             return
-        from ..storage import load_full_charge_date
+        from ..storage import load_discharge_stretches, load_full_charge_date
 
         self._current_mouse = name
         self._low_warned.clear()
         self.full_charge_date = load_full_charge_date(self.config.app_name, name)
+        self._estimator = DischargeEstimator(load_discharge_stretches(self.config.app_name, name))
         self._was_full = False  # don't carry full-state across a mouse switch
 
     def _tooltip(self, name: str | None, status: BatteryStatus) -> str:
@@ -336,11 +381,18 @@ class TrayApp(wx.Frame):
         then shows a fill level and this is the only place the exact number
         appears -- but it is cheap and consistent enough to always include.
         """
-        lines = [name or _NO_MOUSE]
+        lines = [name or tr(_NO_MOUSE)]
         if status.percent is not None:
             lines.append(f"{status.percent}%")
+        if _discharging(status) and status.percent is not None:
+            left = self._estimator.remaining(time.time(), status.percent)
+            if left is None:
+                lines.append(tr("estimating time left…"))
+            else:
+                lines.append(tr("≈ {time} left", time=format_left(left)))
         if self.full_charge_date:
-            lines.append(format_timedelta(datetime.now() - self.full_charge_date))
+            since = format_timedelta(datetime.now() - self.full_charge_date)
+            lines.append(tr("since full charge: {time}", time=since))
         return "\n".join(lines)
 
     # --- animation ----------------------------------------------------------
@@ -443,6 +495,7 @@ class TrayApp(wx.Frame):
         # reference) picks up the new font/color and the worker thread reads the
         # new poll rate on its next iteration. Persist and refresh now.
         save_settings(self.config.app_name, self.config)
+        set_language(self.config.language)
         setup_logging(self.config.app_name, self.config.debug)
         self._repaint()  # show the applied settings instantly
         self._wake()  # force an immediate re-poll so the icon repaints
@@ -463,6 +516,11 @@ class TrayApp(wx.Frame):
         self.tray.RemoveIcon()
         self.tray.Destroy()
         self.Destroy()
+
+
+def _discharging(status: BatteryStatus) -> bool:
+    """Present, awake and running on battery -- the only state that drains it."""
+    return status.present and not status.charging and not status.full and not status.asleep
 
 
 class _App(wx.App):
@@ -497,6 +555,7 @@ def run(config: Config | None = None) -> None:
 
     cfg = config or default_config
     load_settings(cfg.app_name, cfg)  # apply any persisted user settings
+    set_language(cfg.language)
     setup_logging(cfg.app_name, cfg.debug)
     log.info("Starting %s %s from %s", cfg.display_name, version_string(), sys.executable)
     log_startup_diagnostics()

@@ -81,6 +81,8 @@ class Config:
         display_name:     Human-facing app name (tray tooltip, notifications,
                           settings-dialog title). Change this freely; it does not
                           affect any stored path.
+        low_battery_notify: Show a Windows notification when the charge drops to
+                          each of ``LOW_WARN_THRESHOLDS``.
         debug:            Enable verbose DEBUG logging (raw HID reports). Can
                           also be turned on via the MOUSE_TRAY_DEBUG env var.
     """
@@ -88,7 +90,7 @@ class Config:
     poll_rate: int = 60
     fast_poll_rate: int = 1
     foreground_color: tuple[int, int, int] = BLUE
-    dynamic_color: bool = False
+    dynamic_color: bool = True
     mid_color: tuple[int, int, int] = YELLOW
     low_color: tuple[int, int, int] = RED
     battery_icon: bool = False
@@ -98,6 +100,7 @@ class Config:
     text_outline: bool = True
     app_name: str = "Mouse_Tray"
     display_name: str = "Mouse Tray"
+    low_battery_notify: bool = True
     debug: bool = False
 
     def charge_color(self, percent: int) -> tuple[int, int, int]:

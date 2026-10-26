@@ -95,6 +95,8 @@ def save_settings(app_name: str, config: Config) -> None:
             winreg.SetValueEx(key, "MidColor", 0, winreg.REG_SZ, _color_to_str(config.mid_color))
             winreg.SetValueEx(key, "LowColor", 0, winreg.REG_SZ, _color_to_str(config.low_color))
             winreg.SetValueEx(key, "BatteryIcon", 0, winreg.REG_DWORD, 1 if config.battery_icon else 0)
+            notify = 1 if config.low_battery_notify else 0
+            winreg.SetValueEx(key, "LowBatteryNotify", 0, winreg.REG_DWORD, notify)
             winreg.SetValueEx(key, "Debug", 0, winreg.REG_DWORD, 1 if config.debug else 0)
     except OSError as exc:
         log.warning("Could not save settings: %s", exc)
@@ -146,9 +148,39 @@ def load_settings(app_name: str, config: Config) -> None:
         if battery_icon is not None:
             config.battery_icon = bool(battery_icon)
 
+        low_battery_notify = _read_int(key, "LowBatteryNotify")
+        if low_battery_notify is not None:
+            config.low_battery_notify = bool(low_battery_notify)
+
         debug = _read_int(key, "Debug")
         if debug is not None:
             config.debug = bool(debug)
+
+
+# --- first-run autostart ----------------------------------------------------
+#
+# Autostart defaults to on, but only once: after the first start the user's
+# choice (settings dialog or Task Manager) is never overridden again.
+
+_AUTOSTART_DEFAULTED = "AutostartDefaulted"
+
+
+def autostart_defaulted(app_name: str) -> bool:
+    """Whether the one-time "autostart on by default" step has already run."""
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _settings_path(app_name), 0, winreg.KEY_READ) as key:
+            return bool(_read_int(key, _AUTOSTART_DEFAULTED))
+    except OSError:
+        return False
+
+
+def mark_autostart_defaulted(app_name: str) -> None:
+    """Record that the one-time autostart default has been applied."""
+    try:
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, _settings_path(app_name)) as key:
+            winreg.SetValueEx(key, _AUTOSTART_DEFAULTED, 0, winreg.REG_DWORD, 1)
+    except OSError as exc:
+        log.warning("Could not save the autostart default flag: %s", exc)
 
 
 # --- pinned mouse -----------------------------------------------------------

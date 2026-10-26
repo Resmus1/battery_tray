@@ -27,7 +27,7 @@ from PIL import ImageFont
 
 from .. import autostart
 from ..build_info import version_string
-from ..config import LOW_THRESHOLD, MID_THRESHOLD, TEXT_SIZE_MAX, TEXT_SIZE_MIN, Config
+from ..config import LOW_THRESHOLD, LOW_WARN_THRESHOLDS, MID_THRESHOLD, TEXT_SIZE_MAX, TEXT_SIZE_MIN, Config
 from ..logging_setup import open_log
 from ..resources import icon_path
 
@@ -47,15 +47,21 @@ class PreviewHooks:
     battery_icon: Callable[[bool], None] | None = None
 
 
-def open_settings(parent: wx.Window, config: Config, preview: PreviewHooks | None = None) -> bool:
+def open_settings(
+    parent: wx.Window,
+    config: Config,
+    preview: PreviewHooks | None = None,
+    on_test_notification: Callable[[], None] | None = None,
+) -> bool:
     """Show the modal settings dialog, centered on screen.
 
     On OK the edited values are written back onto ``config`` in place and
     ``True`` is returned; on Cancel nothing changes and ``False`` is returned.
     ``preview`` hooks, when given, repaint the tray live as the user edits
-    (see :class:`PreviewHooks`).
+    (see :class:`PreviewHooks`). ``on_test_notification`` backs the "Test"
+    button next to the low-battery notification checkbox.
     """
-    dialog = _SettingsDialog(parent, config, preview or PreviewHooks())
+    dialog = _SettingsDialog(parent, config, preview or PreviewHooks(), on_test_notification)
     try:
         if dialog.ShowModal() != wx.ID_OK:
             return False
@@ -171,6 +177,7 @@ class _SettingsDialog(wx.Dialog):
         parent: wx.Window,
         config: Config,
         preview: PreviewHooks,
+        on_test_notification: Callable[[], None] | None = None,
     ):
         super().__init__(parent, title=f"{config.display_name} {version_string()} settings")
         self.SetIcon(wx.Icon(icon_path("app.ico")))
@@ -178,7 +185,7 @@ class _SettingsDialog(wx.Dialog):
 
         self._all_faces, self._mono_faces, self._face_to_path, self._path_to_face = _collect_faces()
 
-        grid = wx.FlexGridSizer(rows=10, cols=2, vgap=8, hgap=8)
+        grid = wx.FlexGridSizer(rows=11, cols=2, vgap=8, hgap=8)
         grid.AddGrowableCol(1, 1)
 
         grid.Add(wx.StaticText(self, label="Poll interval (s):"), 0, wx.ALIGN_CENTER_VERTICAL)
@@ -218,6 +225,7 @@ class _SettingsDialog(wx.Dialog):
             "tray tooltip.",
         )
         self._battery_icon.Bind(wx.EVT_CHECKBOX, self._on_battery_icon)
+        self._build_notify_row(grid, config.low_battery_notify, on_test_notification)
         self._app_name = config.app_name
         self._autostart_was = autostart.is_enabled(config.app_name)
         self._autostart = self._add_checkbox(
@@ -288,6 +296,27 @@ class _SettingsDialog(wx.Dialog):
             "The digits are measured in the chosen face, so any font fits.",
         )
         self._all_fonts.Bind(wx.EVT_CHECKBOX, self._on_all_fonts)
+
+    def _build_notify_row(
+        self, grid: wx.FlexGridSizer, value: bool, on_test: Callable[[], None] | None
+    ) -> None:
+        """Append the low-battery notification checkbox with its "Test" button."""
+        levels = " and ".join(f"{t}%" for t in LOW_WARN_THRESHOLDS)
+        tip = f"Show a Windows notification when the charge drops to {levels}."
+        text = wx.StaticText(self, label="Low battery notification:")
+        text.SetToolTip(tip)
+        self._low_battery_notify = wx.CheckBox(self)
+        self._low_battery_notify.SetValue(value)
+        self._low_battery_notify.SetToolTip(tip)
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        row.Add(self._low_battery_notify, 0, wx.ALIGN_CENTER_VERTICAL)
+        if on_test is not None:
+            test = wx.Button(self, label="Test")
+            test.SetToolTip("Show the notification now to check the Windows notification settings.")
+            test.Bind(wx.EVT_BUTTON, lambda _evt: on_test())
+            row.Add(test, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 12)
+        grid.Add(text, 0, wx.ALIGN_CENTER_VERTICAL)
+        grid.Add(row, 0, wx.ALIGN_CENTER_VERTICAL)
 
     def _build_size_row(self, grid: wx.FlexGridSizer, text_size: int) -> None:
         """Append the text-size slider row with its live percent label."""
@@ -441,6 +470,7 @@ class _SettingsDialog(wx.Dialog):
         self._update_bands()
         self._battery_icon.SetValue(defaults.battery_icon)
         self._emit_battery_icon_preview()
+        self._low_battery_notify.SetValue(defaults.low_battery_notify)
         self._debug.SetValue(defaults.debug)
         # Autostart is left alone: it is a system integration, not a
         # look-and-feel default, and it never lived in Config.
@@ -493,4 +523,5 @@ class _SettingsDialog(wx.Dialog):
         config.low_color = _rgb(self._low_color)
         config.dynamic_color = self._dynamic_color.GetValue()
         config.battery_icon = self._battery_icon.GetValue()
+        config.low_battery_notify = self._low_battery_notify.GetValue()
         config.debug = self._debug.GetValue()

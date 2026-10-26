@@ -96,7 +96,6 @@ class TrayApp(wx.Frame):
             on_select_mouse=self._select_mouse,
             on_reset_timer=self._reset_timer,
             on_settings=self._open_settings,
-            on_test_notification=self._test_notification,
             on_about=self._open_about,
             on_exit=self._exit,
         )
@@ -309,6 +308,8 @@ class TrayApp(wx.Frame):
 
     def _warn_low(self, name: str | None, percent: int) -> None:
         """Show one warning per threshold crossed; a reading below several only warns once."""
+        if not self.config.low_battery_notify:
+            return
         crossed = {t for t in LOW_WARN_THRESHOLDS if percent <= t} - self._low_warned
         if not crossed:
             return
@@ -475,6 +476,21 @@ class _App(wx.App):
         return True
 
 
+def _default_autostart(app_name: str) -> None:
+    """Turn autostart on at the very first start; later starts respect the user's choice."""
+    from ..storage import autostart_defaulted, mark_autostart_defaulted
+
+    if autostart_defaulted(app_name):
+        return
+    try:
+        autostart.set_enabled(app_name, True)
+    except OSError as exc:
+        log.warning("Could not enable autostart by default: %s", exc)
+        return
+    mark_autostart_defaulted(app_name)
+    log.info("Autostart enabled by default: %s", autostart.command())
+
+
 def run(config: Config | None = None) -> None:
     """Launch the tray application."""
     from ..storage import load_settings
@@ -485,6 +501,7 @@ def run(config: Config | None = None) -> None:
     log.info("Starting %s %s from %s", cfg.display_name, version_string(), sys.executable)
     log_startup_diagnostics()
     autostart.repair(cfg.app_name)  # follow the program if its folder moved
+    _default_autostart(cfg.app_name)
     with suppress(AttributeError, OSError):  # non-Windows or older Windows
         ctypes.windll.shcore.SetProcessDpiAwareness(2)
     app = _App(cfg)

@@ -5,6 +5,7 @@ Run with:  uv run --extra build python tools/make_release.py
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -135,8 +136,12 @@ def _write_commit_module() -> Path | None:
 
 def _command(commit_module: Path | None, version_file: Path) -> list[str]:
     """Assemble the PyInstaller command line."""
+    # Without uv, fall back to the PyInstaller installed in the running interpreter.
+    runner = ["uv", "run", "--extra", "build", "pyinstaller"] if shutil.which("uv") else [
+        sys.executable, "-m", "PyInstaller",
+    ]
     cmd = [
-        "uv", "run", "--extra", "build", "pyinstaller",
+        *runner,
         "--clean",
         "--noconsole",
         "--noconfirm",
@@ -148,6 +153,9 @@ def _command(commit_module: Path | None, version_file: Path) -> list[str]:
         # drivers/__init__.py, so PyInstaller can't see them statically.
         # Collect the whole subpackage; new drivers are then included for free.
         "--collect-submodules", "mouse_tray.drivers",
+        # The project root must be importable while PyInstaller runs its hooks,
+        # or --collect-submodules silently finds nothing and the exe dies on start.
+        "--paths", ".",
     ]
     for module in EXCLUDES:
         cmd += ["--exclude-module", module]

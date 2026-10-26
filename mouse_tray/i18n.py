@@ -23,9 +23,9 @@ _RU = {
     "About...": "О программе...",
     "Exit": "Выход",
     "Auto": "Авто",
-    "No Mouse Detected": "Мышь не найдена",
-    "Not connected": "Не подключена",
-    "Pinned mouse": "Выбранная мышь",
+    "No device detected": "Устройство не найдено",
+    "Not connected": "Не подключено",
+    "Pinned device": "Выбранное устройство",
     "since full charge: {time}": "с полной зарядки: {time}",
     "≈ {time} left": "осталось ≈ {time}",
     "estimating time left…": "оценка времени…",
@@ -37,7 +37,7 @@ _RU = {
     "Charged 100%": "Заряжено 100%",
     "{name}: battery low ({percent}%)": "{name}: низкий заряд ({percent}%)",
     "Test: battery {percent}%": "Тест: заряд {percent}%",
-    "Mouse": "Мышь",
+    "Device": "Устройство",
     # settings
     "{name} {version} settings": "{name} {version} — настройки",
     "Poll interval (s):": "Интервал опроса (с):",
@@ -116,8 +116,14 @@ _RU = {
     "Supported devices ({count}):": "Поддерживаемые устройства ({count}):",
     "USB ID": "USB ID",
     "Protocol": "Протокол",
-    "Universal wireless-mouse battery indicator for the Windows system tray.":
-        "Универсальный индикатор заряда беспроводной мыши в системном трее Windows.",
+    "Battery indicator for wireless mice, gamepads and Bluetooth devices in the Windows tray.":
+        "Индикатор заряда беспроводных мышей, геймпадов и Bluetooth-устройств в системном трее Windows.",
+    "Bluetooth: any paired device whose battery Windows shows in Settings "
+    "(mice, keyboards, gamepads, headphones). Windows gives the level only, "
+    "without the charging state.":
+        "Bluetooth: любое сопряжённое устройство, заряд которого Windows показывает "
+        "в «Параметрах» (мыши, клавиатуры, геймпады, наушники). Windows сообщает "
+        "только уровень, без состояния зарядки.",
 }
 
 

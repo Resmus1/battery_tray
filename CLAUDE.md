@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A **universal** wireless-mouse battery indicator for the Windows system tray. The
+**Battery Tray** (formerly Mouse Tray Charge; package, exe and registry keys
+keep the `mouse_tray` / `Mouse_Tray` names) — a **universal** battery indicator
+for wireless mice, gamepads and Bluetooth devices in the Windows system tray. The
 whole design turns on one idea: every mouse — whatever the vendor or transport —
 is reduced to a single normalized [`BatteryStatus`](mouse_tray/battery.py), and a
 single state machine in [`ui/app.py`](mouse_tray/ui/app.py) renders that into the
@@ -117,7 +119,12 @@ Drivers live in two subpackages: `drivers/chipset/` for shared-silicon protocols
 (named after the chipset, e.g. `nordic52`, `nordic54`, `realtek` — one protocol
 spanning every brand that rebrands that chip) and `drivers/vendor/` for
 brand-specific protocols. Pick by what the protocol actually keys on, not the
-brand on the box.
+brand on the box. A third, `drivers/system/`, holds drivers with no protocol of
+their own: [`bluetooth.py`](mouse_tray/drivers/system/bluetooth.py) reads the
+level Windows keeps for paired Bluetooth devices (PnP property via CfgMgr32 /
+`ctypes`, no extra dependency). It has no `models`, keys devices by container
+id, probes last and skips any device whose address shows up in the HID path of
+a model another driver lists.
 
 - **Same protocol, new model** — add one `MouseModel` row to that driver's
   `models` list (VID, wireless PID, wired PID, plus `usage_page`/`usage`/
@@ -155,9 +162,13 @@ no `.spec` edit needed.
 GitHub Actions, геймпады Sony
 ([`vendor/sony.py`](mouse_tray/drivers/vendor/sony.py): каждый геймпад — свой
 экземпляр с ключом по серийному номеру, т. е. BT-адресу, поэтому одинаковые
-геймпады различаются) и до четырёх устройств в трее одновременно. Новые строки
-интерфейса пишутся на английском через `tr()`, а перевод добавляется в таблицу
-`_RU` в `i18n.py`.
+геймпады различаются), до четырёх устройств в трее одновременно и любые
+Bluetooth-устройства, чей заряд знает Windows
+([`system/bluetooth.py`](mouse_tray/drivers/system/bluetooth.py)). Видимое имя —
+**Battery Tray** (`display_name`); `app_name`, имя пакета, exe и путь установки
+остались `mouse_tray`, чтобы не терять настройки, автозапуск и значок в трее.
+Новые строки интерфейса пишутся на английском через `tr()`, а перевод
+добавляется в таблицу `_RU` в `i18n.py`.
 
 ### Пути
 

@@ -6,11 +6,11 @@ from dataclasses import dataclass
 
 #: Application version, shown in the settings and about dialogs. Single source
 #: for the runtime version (re-exported as ``mouse_tray.__version__``).
-VERSION = "0.3.0"
+VERSION = "0.4.0"
 
 #: Project identity, shown in the about dialog. Kept here with VERSION so the
 #: dialog has a single source for everything it prints about the app itself.
-DESCRIPTION = "Universal wireless-mouse battery indicator for the Windows system tray."
+DESCRIPTION = "Battery indicator for wireless mice, gamepads and Bluetooth devices in the Windows tray."
 HOMEPAGE = "https://github.com/Resmus1/mouse_tray"
 
 #: Author, stamped into the exe's version resource (CompanyName and
@@ -108,7 +108,7 @@ class Config:
     text_outline: bool = True
     tray_icons: int = 1
     app_name: str = "Mouse_Tray"
-    display_name: str = "Mouse Tray"
+    display_name: str = "Battery Tray"
     low_battery_notify: bool = True
     notify_level_high: int = 20
     notify_level_low: int = 10

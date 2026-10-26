@@ -45,7 +45,7 @@ log = logging.getLogger(__name__)
 #: Charge levels cycled through while the mouse is charging.
 _ANIMATION_FRAMES = (0, 50, 100)
 _ANIMATION_INTERVAL_MS = 500
-_NO_MOUSE = "No Mouse Detected"
+_NO_DEVICE = "No device detected"
 _NOT_CONNECTED = "Not connected"
 
 
@@ -311,7 +311,7 @@ class TrayApp(wx.Frame):
         available = {key for key, _name in self._available}
         for key, name in self._pins:
             if key not in available:
-                label = f"{name or tr('Pinned mouse')} ({tr(_NOT_CONNECTED).lower()})"
+                label = f"{name or tr('Pinned device')} ({tr(_NOT_CONNECTED).lower()})"
                 choices.append(MouseChoice(key, label, True))
         return MouseMenu(choices, multi=limit > 1)
 
@@ -410,7 +410,7 @@ class TrayApp(wx.Frame):
                 self._end_full(state)
             # A name here means a pinned mouse that is simply not connected --
             # worth saying, since "-" alone reads as "the app found nothing".
-            tooltip = tr(_NO_MOUSE) if name is None else f"{name}\n{tr(_NOT_CONNECTED)}"
+            tooltip = tr(_NO_DEVICE) if name is None else f"{name}\n{tr(_NOT_CONNECTED)}"
             slot.show(self.icons.text_icon("-"), tooltip)
             return
 

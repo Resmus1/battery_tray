@@ -35,6 +35,7 @@ _DRIVER_MODULES = [
     "vendor.attackshark",
     "vendor.bloody",
     "vendor.sony",
+    "system.bluetooth",
 ]
 
 for _name in _DRIVER_MODULES:

@@ -19,7 +19,7 @@ from ..drivers import MouseModel, all_drivers
 from ..i18n import tr
 from ..resources import icon_path
 
-_COLUMNS = ("Mouse", "USB ID", "Protocol")
+_COLUMNS = ("Device", "USB ID", "Protocol")
 #: Slack added to every autosized column. wx measures the text alone, which
 #: leaves the last glyph touching the next column -- and clipped outright once
 #: the vertical scrollbar eats into the last one.
@@ -91,7 +91,7 @@ class _AboutDialog(wx.Dialog):
         outer.Add(_MouseList(self, mice, self.FromDIP(_LIST_SIZE)), 1, wx.EXPAND | wx.ALL, 12)
 
         for note in driver_notes():
-            text = wx.StaticText(self, label=note)
+            text = wx.StaticText(self, label=tr(note))
             text.Wrap(self.FromDIP(420))
             text.SetForegroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_GRAYTEXT))
             outer.Add(text, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)

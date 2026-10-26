@@ -1,8 +1,9 @@
-# Mouse Tray Charge
+# Battery Tray
 
 **English** | [Русский](README.ru.md)
 
-A **universal** wireless-mouse battery indicator for the Windows system tray.
+A **universal** battery indicator for wireless mice, gamepads and Bluetooth
+devices in the Windows system tray (formerly *Mouse Tray Charge*).
 One app, many vendors — adding a new manufacturer or model is a single small
 file, no changes to the UI or polling code.
 
@@ -31,6 +32,12 @@ file, no changes to the UI or polling code.
 - **Sony gamepads:** DualShock 4 (v1, v2, USB wireless adapter), DualSense,
   DualSense Edge — USB and Bluetooth. Not yet verified on hardware; a pad
   hidden by DS4Windows/HidHide exclusive mode is not visible.
+- **Bluetooth:** any paired device whose battery Windows itself shows under
+  Settings → Bluetooth & devices — BLE mice, keyboards and gamepads, classic
+  headsets. Windows gives the level only, so there is no charging animation.
+  A device another driver already reads (a Logitech mouse over Bluetooth) is
+  left to that driver. Names carry the last four digits of the Bluetooth
+  address, e.g. `WH-1000XM4 (E4F5)`, so two identical devices stay apart.
 
 > The Razer driver was ported from a `pyusb` implementation to `hidapi` for
 > uniformity; the report offset / HID collection may need confirmation on
@@ -345,6 +352,13 @@ case (a subclass writes only `read_status()` on top of `_transact()`), and
 discovery, device-index routing). The two share no code, which is precisely why
 the real abstraction is `MouseDriver` rather than either base.
 
+A third kind needs no protocol at all:
+[`system/bluetooth.py`](mouse_tray/drivers/system/bluetooth.py) reads the level
+Windows keeps for every paired Bluetooth device (the PnP property
+`{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2`, through CfgMgr32 and `ctypes`),
+counting a device only while its node lacks `DN_DEVICE_DISCONNECTED`. It probes
+last, so a device a HID driver handles is never shown twice.
+
 ### Polling
 
 A daemon thread runs the poll loop. Detection re-runs on every tick — it costs
@@ -422,6 +436,8 @@ mouse_tray/
       attackshark.py    Attack Shark      (pushed HID input report 3)
       bloody.py         A4Tech Bloody     (HID feature report 0 + input report 6)
       sony.py           DualShock 4 / DualSense (streamed input report)
+    system/             what Windows already knows
+      bluetooth.py      any Bluetooth device (PnP battery property, CfgMgr32)
   ui/
     icons.py            tray icon rendering (PIL digits + SVG battery)
     tray.py             TaskBarIcon wrapper

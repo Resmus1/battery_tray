@@ -68,6 +68,18 @@ The layering is deliberately strict — respect it when adding code:
 - [`ui/app.py`](mouse_tray/ui/app.py) — the wx app, the background polling thread,
   and the single `_apply_status` state machine. This module **never imports a
   driver module**, only `detect_all_drivers()` and the `MouseDriver` contract.
+  `_apply_status` also drives the fork's extras: low-battery toasts
+  (`_warn_low`) and the time-left estimate (`_track_discharge` →
+  [`estimate.py`](mouse_tray/estimate.py) `DischargeEstimator`, whose stretches
+  persist per mouse in the registry `Discharge` subkey).
+- [`ui/settings.py`](mouse_tray/ui/settings.py) — edits a `Config` copy only;
+  `app._open_settings` persists it and refreshes the tray. Font/size/outline/icon
+  changes are previewed live via `PreviewHooks`. "Start with Windows" is the
+  exception: it lives only in the Windows `Run` key
+  ([`autostart.py`](mouse_tray/autostart.py)) and the dialog writes it itself.
+- [`build_info.py`](mouse_tray/build_info.py) — the version label's commit hash
+  comes from `git rev-parse` in a checkout, or from `mouse_tray/_commit.py`
+  (gitignored) that `tools/make_release.py` writes for the frozen exe.
 
 ### Three things to know about the runtime
 
@@ -82,14 +94,22 @@ The layering is deliberately strict — respect it when adding code:
   worker sleeps the full `poll_rate`; hot-plug (cable, dongle) wakes it early
   via `WM_DEVICECHANGE` ([`ui/devnotify.py`](mouse_tray/ui/devnotify.py)), as
   does a left click on the icon.
-- **Which mouse the tray shows:** all connected mice are detected, only one is
-  read. With no pin the worker picks the first that reports `present` and sticks
-  to it (`_auto_key`) — so a plugged dongle whose mouse is off doesn't shadow a
-  working one. When the user pins a mouse from the tray menu the pin is *strict*:
-  if it is unplugged the tray shows "-", it never falls back to another mouse.
-  The pin lives in the registry (`SelectedMouse` / `SelectedMouseName`); the
-  worker owns the driver objects and only ever *reads* the pin, which keeps
-  driver state single-threaded.
+- **Which mice the tray shows:** all connected devices are detected; up to
+  `Config.tray_icons` (1–4) are read, one tray icon (`_TraySlot`) each. With no
+  pin the worker picks the first that report `present` and sticks to them
+  (`_auto_keys`) — so a plugged dongle whose mouse is off doesn't shadow a
+  working one. Pins from the tray menu are *strict*: an unplugged pinned device
+  shows "-", it never falls back to another one. Pins live in the registry
+  (`SelectedMice`, REG_MULTI_SZ of `key<TAB>name`; the old single
+  `SelectedMouse` / `SelectedMouseName` is still written for downgrades and read
+  as a fallback); the worker owns the driver objects and only ever *reads* the
+  pins, which keeps driver state single-threaded.
+- **Slots vs. devices:** slots are pooled and only hidden, never destroyed
+  before exit (destroying a `TaskBarIcon` with its menu open is unsafe), and
+  slot 0 is always visible because the notifications hang off it. Everything
+  remembered about a device — full-charge timer, `DischargeEstimator`, warnings
+  already shown — lives in `_MouseState`, keyed by display name like the
+  registry, never in the slot: a device can land in another slot after a re-plug.
 
 ## Adding mouse support
 
@@ -132,8 +152,12 @@ no `.spec` edit needed.
 оригинала: уведомления о разряде (пороги, повтор, кнопка «Тест»), оценка
 оставшегося времени ([`estimate.py`](mouse_tray/estimate.py)), русский интерфейс
 ([`i18n.py`](mouse_tray/i18n.py)), настройки по разделам, сборка релизов в
-GitHub Actions. Новые строки интерфейса пишутся на английском через `tr()`, а
-перевод добавляется в таблицу `_RU` в `i18n.py`.
+GitHub Actions, геймпады Sony
+([`vendor/sony.py`](mouse_tray/drivers/vendor/sony.py): каждый геймпад — свой
+экземпляр с ключом по серийному номеру, т. е. BT-адресу, поэтому одинаковые
+геймпады различаются) и до четырёх устройств в трее одновременно. Новые строки
+интерфейса пишутся на английском через `tr()`, а перевод добавляется в таблицу
+`_RU` в `i18n.py`.
 
 ### Пути
 
@@ -185,9 +209,13 @@ GitHub Actions. Новые строки интерфейса пишутся на
   тянет `decimal`, поэтому в `estimate.py` своя медиана.
 - Вёрстку окон проверять скриншотом: показать диалог, снять его через
   `PIL.ImageGrab` и посмотреть оба языка.
-- `ruff check mouse_tray`: в коде автора 28 старых замечаний, новых не
-  добавлять.
-- Окончания строк у файлов разные (часть в CRLF), сохранять как есть.
+- `uvx ruff check .` проходит чисто (`All checks passed!`) — так и держать.
+- Окончания строк у файлов в git разные: `estimate.py`, `i18n.py`,
+  `logging_setup.py`, `ui/app.py`, `ui/tray.py`, `pyproject.toml`,
+  `tools/make_release.py` — CRLF, остальные — LF. Сохранять как в git
+  (`core.autocrlf=false`); правка с Windows по сетевой папке может молча
+  перевести файл в CRLF — такие изменения без смены содержимого не коммитить
+  (проверка: `git diff --ignore-cr-at-eol --stat` пуст).
 
 ### Коммиты
 

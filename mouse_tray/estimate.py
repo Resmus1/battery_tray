@@ -17,7 +17,15 @@ Two rules keep the number honest after such a change:
 
 Gaps in observation -- PC asleep or off, mouse switched off, app not running --
 never count as discharge time: a gap longer than :data:`_MAX_GAP_S` restarts
-the current stretch.
+the current stretch. A mouse that dozes off is not a gap: it is still on
+battery, so :meth:`DischargeEstimator.touch` keeps the stretch open.
+
+The percent is a voltage reading and flickers -- 80, 79, 80, 79 at every
+boundary. A reading above the lowest one seen is that jitter and is ignored;
+only a jump of :data:`_RECHARGE_JUMP` or more (charged while the app was not
+looking) restarts the stretch. Restarting on every flicker would leave each
+drop "the first one after a restart", which is never timed, so the estimate
+would never appear.
 """
 
 from __future__ import annotations
@@ -31,6 +39,8 @@ _MIN_STRETCHES = 2
 _REGIME_FACTOR = 1.8
 #: Longer than this without a reading is a gap, not discharge time.
 _MAX_GAP_S = 10 * 60
+#: A reading this far above the lowest one seen is a missed recharge, not jitter.
+_RECHARGE_JUMP = 5
 
 
 class DischargeEstimator:
@@ -54,19 +64,24 @@ class DischargeEstimator:
         self.reset()
         self.stretches.clear()
 
+    def touch(self, now: float) -> None:
+        """A reading without a level (the mouse is asleep): not a gap."""
+        if self._last_seen is not None and now - self._last_seen <= _MAX_GAP_S:
+            self._last_seen = now
+
     def add(self, now: float, percent: int) -> bool:
         """Record a discharging reading; ``True`` when a new stretch was measured."""
         gap = self._last_seen is not None and now - self._last_seen > _MAX_GAP_S
         self._last_seen = now
-        if gap or self._last_percent is None or percent > self._last_percent:
-            # First reading, a gap, or a reading that went up without charging
-            # (sensor jitter): the current percent may have begun long before,
-            # so only the next drop starts a stretch timed from its beginning.
+        if gap or self._last_percent is None or percent >= self._last_percent + _RECHARGE_JUMP:
+            # First reading, a gap, or a recharge we did not see: the current
+            # percent may have begun long before, so only the next drop starts
+            # a stretch timed from its beginning.
             self._last_percent = percent
             self._stretch_start = None
             return False
-        if percent == self._last_percent:
-            return False
+        if percent >= self._last_percent:
+            return False  # same level, or jitter above it: the lowest one stands
 
         dropped = self._last_percent - percent
         started = self._stretch_start

@@ -28,6 +28,9 @@ file, no changes to the UI or polling code.
   feature, via a receiver **or connected directly by USB cable / Bluetooth**
   (model name auto-detected over HID++) — verified on PRO X2 SUPERSTRIKE
   (receiver and wired)
+- **Sony gamepads:** DualShock 4 (v1, v2, USB wireless adapter), DualSense,
+  DualSense Edge — USB and Bluetooth. Not yet verified on hardware; a pad
+  hidden by DS4Windows/HidHide exclusive mode is not visible.
 
 > The Razer driver was ported from a `pyusb` implementation to `hidapi` for
 > uniformity; the report offset / HID collection may need confirmation on
@@ -125,19 +128,26 @@ stay. A new dependency is reason to revisit that list.
 
 ## Multiple mice
 
-Every supported mouse that is plugged in is detected, and the tray shows one of
-them. By default that is the first one that actually answers — a receiver whose
-mouse is switched off is skipped rather than shown as "no mouse" — and it stays
-the active one until it disappears.
+Every supported device that is plugged in is detected. By default the tray
+shows one of them: the first one that actually answers — a receiver whose mouse
+is switched off is skipped rather than shown as "no mouse" — and it stays the
+active one until it disappears.
 
-When two or more are connected, the tray menu grows a mouse list: pick **Auto**
-for that behaviour, or pin a specific mouse. A pin is strict — if the pinned
-mouse is unplugged the tray shows `-` and names it in the tooltip, it never
-quietly switches to another mouse. The choice is saved to the registry and
-survives restarts. Only the shown mouse is polled, so the others cost nothing.
+When two or more are connected, the tray menu grows a device list: pick **Auto**
+for that behaviour, or pin a specific device. A pin is strict — if the pinned
+device is unplugged the tray shows `-` and names it in the tooltip, it never
+quietly switches to another one. The choice is saved to the registry and
+survives restarts. Only the shown devices are polled, so the others cost nothing.
 
-The "time since last full charge" timer is kept per mouse, so switching keeps
-each one's own timer.
+**Devices in tray** (Settings, 1–4) shows several devices at once, one icon
+each — say, a mouse and a gamepad. On **Auto** the tray then shows every
+device that answers, up to that many, and icons come and go with them; the
+list in the menu turns into checkboxes, each pinning one device to its own
+icon. Every icon has the full menu; **Reset timer** applies to the device of
+the icon clicked.
+
+The "time since last full charge" timer, the time-left estimate and the
+low-battery warnings are kept per device, so switching keeps each one's own.
 
 ## Settings
 
@@ -162,6 +172,9 @@ With **Show battery icon** enabled, the charge level is drawn as a battery
 filled to that percent instead of as digits, and the exact number moves to the
 hover tooltip (which also shows the mouse name and time since the last full
 charge). "No mouse", sleep and unknown-level states stay textual either way.
+
+**Devices in tray** sets how many devices the tray shows at once (1 by
+default, up to 4); see [Multiple mice](#multiple-mice).
 
 **Low battery notification** (on by default) shows a Windows notification when
 the charge drops to the first level and again at the second (**Notify at**,
@@ -351,12 +364,16 @@ is set to. A left click on the tray icon forces a re-poll too.
 
 ### Which mouse is shown
 
-All connected mice are detected; only one is read. With no pin the worker takes
-the first that reports `present` and sticks to it, so a connected receiver whose
-mouse is switched off never shadows a working one. A pin chosen from the tray
-menu is strict — an unplugged pinned mouse yields `-` rather than a silent switch
-to another device. The pin lives in the registry and is only ever *read* by the
-worker, which keeps the driver objects single-threaded.
+All connected devices are detected; only the shown ones are read, up to
+`tray_icons` of them. With no pin the worker takes the first that report
+`present` and sticks to them, so a connected receiver whose mouse is switched
+off never shadows a working one. Pins chosen from the tray menu are strict — an
+unplugged pinned device yields `-` rather than a silent switch to another one.
+The pins live in the registry and are only ever *read* by the worker, which
+keeps the driver objects single-threaded. Each reading gets a tray icon of its
+own; icons no longer needed are hidden rather than destroyed, and what the app
+remembers about a device (timer, estimate, warnings) is keyed by the device,
+not by the icon.
 
 ### Rendering
 
@@ -404,6 +421,7 @@ mouse_tray/
       logitech.py       Logitech          (HID++ 2.0 via receiver)
       attackshark.py    Attack Shark      (pushed HID input report 3)
       bloody.py         A4Tech Bloody     (HID feature report 0 + input report 6)
+      sony.py           DualShock 4 / DualSense (streamed input report)
   ui/
     icons.py            tray icon rendering (PIL digits + SVG battery)
     tray.py             TaskBarIcon wrapper
@@ -433,3 +451,6 @@ Each driver's protocol was ported from (or verified against) these projects:
 - **A4Tech Bloody (8K dongle)** — protocol reverse-engineered from a USB capture
   contributed by JurecUA in
   [issue #5](https://github.com/Fan4Metal/mouse_tray/issues/5)
+- **Sony DualShock 4 / DualSense** — the Linux kernel drivers
+  [`hid-playstation`](https://github.com/torvalds/linux/blob/master/drivers/hid/hid-playstation.c)
+  and [`hid-sony`](https://github.com/torvalds/linux/blob/master/drivers/hid/hid-sony.c)

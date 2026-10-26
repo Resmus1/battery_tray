@@ -68,6 +68,11 @@ _RU = {
         "выше {mid}%, затем два цвета, выбранные рядом,\n"
         "при ≤ {mid}% и ≤ {low}%.",
     "Show battery icon:": "Значок батарейки:",
+    "Devices in tray:": "Устройств в трее:",
+    "Show up to this many connected devices at once, one tray icon\n"
+    "each. With several, the tray menu pins devices by checkbox.":
+        "Показывать до стольких подключённых устройств сразу, каждое своим\n"
+        "значком. Если их несколько, в меню трея устройства отмечаются галочками.",
     "Draw a battery filled to the charge level instead of\n"
     "the percent digits. The exact number moves to the\n"
     "tray tooltip.":

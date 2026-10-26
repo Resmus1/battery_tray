@@ -22,6 +22,20 @@ class MouseChoice:
     key: str
     name: str
     selected: bool
+    #: False greys the entry out: every tray slot is already pinned.
+    enabled: bool = True
+
+
+@dataclass(frozen=True)
+class MouseMenu:
+    """What the mouse selector shows.
+
+    ``multi`` -- the tray shows several mice, so entries are checkboxes that
+    pin and unpin one mouse each; otherwise a radio list that swaps the one pin.
+    """
+
+    choices: list[MouseChoice]
+    multi: bool = False
 
 
 class TrayIcon(TaskBarIcon):
@@ -36,7 +50,7 @@ class TrayIcon(TaskBarIcon):
         self,
         *,
         on_left_click: Callable[[], None],
-        mice_provider: Callable[[], list[MouseChoice]],
+        mice_provider: Callable[[], MouseMenu],
         on_select_mouse: Callable[[str | None], None],
         on_reset_timer: Callable[[], None],
         on_settings: Callable[[], None],
@@ -68,22 +82,24 @@ class TrayIcon(TaskBarIcon):
         return menu
 
     def _append_mice(self, menu: wx.Menu) -> None:
-        """Radio list of detected mice, plus "Auto", when there is a choice.
+        """List of detected mice, plus "Auto", when there is a choice.
 
         Hidden in the single-mouse case -- one mouse and no pin is not a choice,
         and the menu stays exactly as it was before multi-mouse support.
         """
-        choices = self._mice_provider()
-        pinned = any(choice.selected for choice in choices)
-        if len(choices) < 2 and not pinned:
+        mice = self._mice_provider()
+        pinned = any(choice.selected for choice in mice.choices)
+        if len(mice.choices) < 2 and not pinned:
             return
 
-        auto_item = menu.AppendRadioItem(wx.ID_ANY, tr("Auto"))
+        append = menu.AppendCheckItem if mice.multi else menu.AppendRadioItem
+        auto_item = append(wx.ID_ANY, tr("Auto"))
         auto_item.Check(not pinned)
         self.Bind(wx.EVT_MENU, lambda _evt: self._on_select_mouse(None), auto_item)
-        for choice in choices:
-            item = menu.AppendRadioItem(wx.ID_ANY, choice.name)
+        for choice in mice.choices:
+            item = append(wx.ID_ANY, choice.name)
             item.Check(choice.selected)
+            item.Enable(choice.enabled)
             self.Bind(wx.EVT_MENU, lambda _evt, key=choice.key: self._on_select_mouse(key), item)
         menu.AppendSeparator()
 

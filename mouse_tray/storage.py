@@ -11,7 +11,7 @@ import logging
 import winreg
 from datetime import datetime
 
-from .config import TEXT_SIZE_MAX, TEXT_SIZE_MIN, Config
+from .config import TEXT_SIZE_MAX, TEXT_SIZE_MIN, TRAY_ICONS_MAX, Config
 from .i18n import LANGUAGES
 
 _DATE_FORMAT = "%d.%m.%Y %H:%M:%S"
@@ -117,6 +117,7 @@ def save_settings(app_name: str, config: Config) -> None:
             winreg.SetValueEx(key, "Font", 0, winreg.REG_SZ, config.font)
             winreg.SetValueEx(key, "TextSizePct", 0, winreg.REG_DWORD, int(config.text_size))
             winreg.SetValueEx(key, "TextOutline", 0, winreg.REG_DWORD, 1 if config.text_outline else 0)
+            winreg.SetValueEx(key, "TrayIcons", 0, winreg.REG_DWORD, int(config.tray_icons))
             color = _color_to_str(config.foreground_color)
             winreg.SetValueEx(key, "ForegroundColor", 0, winreg.REG_SZ, color)
             winreg.SetValueEx(key, "DynamicColor", 0, winreg.REG_DWORD, 1 if config.dynamic_color else 0)
@@ -135,7 +136,7 @@ def save_settings(app_name: str, config: Config) -> None:
         log.warning("Could not save settings: %s", exc)
 
 
-def load_settings(app_name: str, config: Config) -> None:  # noqa: PLR0912 -- one guard per setting
+def load_settings(app_name: str, config: Config) -> None:  # noqa: PLR0912, PLR0915 -- one guard per setting
     """Apply persisted settings onto ``config`` in place.
 
     Missing or invalid values are skipped so each field keeps its code default.
@@ -160,6 +161,10 @@ def load_settings(app_name: str, config: Config) -> None:  # noqa: PLR0912 -- on
         text_outline = _read_int(key, "TextOutline")
         if text_outline is not None:
             config.text_outline = bool(text_outline)
+
+        tray_icons = _read_int(key, "TrayIcons")
+        if tray_icons is not None and 1 <= tray_icons <= TRAY_ICONS_MAX:
+            config.tray_icons = tray_icons
 
         color = _read_str(key, "ForegroundColor")
         if color is not None and (parsed := _str_to_color(color)) is not None:
@@ -232,37 +237,52 @@ def mark_autostart_defaulted(app_name: str) -> None:
         log.warning("Could not save the autostart default flag: %s", exc)
 
 
-# --- pinned mouse -----------------------------------------------------------
+# --- pinned mice ------------------------------------------------------------
 #
-# Kept out of Config on purpose: the pin is chosen from the tray menu, not from
-# the settings dialog, so it must not ride along with save_settings.
+# Kept out of Config on purpose: the pins are chosen from the tray menu, not
+# from the settings dialog, so they must not ride along with save_settings.
 
+_SELECTED = "SelectedMice"
+# The single pin of 0.2.x. Still written (first pin) so a downgrade keeps it,
+# and read when the list above has never been saved.
 _SELECTED_KEY = "SelectedMouse"
 _SELECTED_NAME = "SelectedMouseName"
+_SEPARATOR = "\t"
 
 
-def save_selected_mouse(app_name: str, key: str | None, name: str | None) -> None:
-    """Persist which mouse the user pinned (``None`` restores auto-select).
+def save_selected_mice(app_name: str, pins: list[tuple[str, str | None]]) -> None:
+    """Persist the pinned mice as ``(key, name)`` in tray order; empty means auto.
 
     The display name is stored next to the key so a pinned-but-offline mouse can
     still be named in the tooltip and in the tray menu -- the key alone
     (``DriverClass/VID/PID``) is not something to show a user.
     """
+    entries = [f"{key}{_SEPARATOR}{name or ''}" for key, name in pins]
+    first_key, first_name = pins[0] if pins else (None, None)
     try:
         with winreg.CreateKey(winreg.HKEY_CURRENT_USER, _settings_path(app_name)) as reg_key:
-            winreg.SetValueEx(reg_key, _SELECTED_KEY, 0, winreg.REG_SZ, key or "")
-            winreg.SetValueEx(reg_key, _SELECTED_NAME, 0, winreg.REG_SZ, name or "")
+            winreg.SetValueEx(reg_key, _SELECTED, 0, winreg.REG_MULTI_SZ, entries)
+            winreg.SetValueEx(reg_key, _SELECTED_KEY, 0, winreg.REG_SZ, first_key or "")
+            winreg.SetValueEx(reg_key, _SELECTED_NAME, 0, winreg.REG_SZ, first_name or "")
     except OSError as exc:
-        log.warning("Could not save the selected mouse: %s", exc)
+        log.warning("Could not save the selected mice: %s", exc)
 
 
-def load_selected_mouse(app_name: str) -> tuple[str | None, str | None]:
-    """Read the pinned mouse as ``(key, name)``; ``(None, None)`` means auto."""
+def load_selected_mice(app_name: str) -> list[tuple[str, str | None]]:
+    """Read the pinned mice as ``(key, name)`` pairs; an empty list means auto."""
     path = _settings_path(app_name)
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_READ) as reg_key:
-            key = _read_str(reg_key, _SELECTED_KEY)
-            name = _read_str(reg_key, _SELECTED_NAME)
+            try:
+                entries = winreg.QueryValueEx(reg_key, _SELECTED)[0]
+            except OSError:
+                key = _read_str(reg_key, _SELECTED_KEY)
+                return [(key, _read_str(reg_key, _SELECTED_NAME) or None)] if key else []
     except OSError:
-        return None, None
-    return (key or None), (name or None)
+        return []
+    pins = []
+    for entry in entries or []:
+        key, _, name = str(entry).partition(_SEPARATOR)
+        if key:
+            pins.append((key, name or None))
+    return pins

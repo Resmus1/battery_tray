@@ -27,7 +27,7 @@ from PIL import ImageFont
 
 from .. import autostart
 from ..build_info import version_string
-from ..config import LOW_THRESHOLD, MID_THRESHOLD, TEXT_SIZE_MAX, TEXT_SIZE_MIN, Config
+from ..config import LOW_THRESHOLD, MID_THRESHOLD, TEXT_SIZE_MAX, TEXT_SIZE_MIN, TRAY_ICONS_MAX, Config
 from ..i18n import LANGUAGES, tr
 from ..logging_setup import open_log
 from ..resources import icon_path
@@ -227,6 +227,7 @@ class _SettingsDialog(wx.Dialog):
             "tray tooltip.",
         )
         self._battery_icon.Bind(wx.EVT_CHECKBOX, self._on_battery_icon)
+        self._build_tray_icons_row(look, config.tray_icons)
         self._build_notify_rows(notify, config, on_test_notification)
 
         self._build_poll_row(general, config.poll_rate)
@@ -383,6 +384,20 @@ class _SettingsDialog(wx.Dialog):
         self._notify_repeat.SetToolTip(repeat_tip)
         grid.Add(repeat_label, 0, wx.ALIGN_CENTER_VERTICAL)
         grid.Add(self._notify_repeat, 0, wx.ALIGN_CENTER_VERTICAL)
+
+    def _build_tray_icons_row(self, grid: wx.FlexGridSizer, tray_icons: int) -> None:
+        """Append the "how many devices at once" spinner."""
+        tip = tr(
+            "Show up to this many connected devices at once, one tray icon\n"
+            "each. With several, the tray menu pins devices by checkbox."
+        )
+        label = wx.StaticText(self, label=tr("Devices in tray:"))
+        label.SetToolTip(tip)
+        self._tray_icons = wx.SpinCtrl(self, min=1, max=TRAY_ICONS_MAX, initial=tray_icons)
+        self._tray_icons.SetMinSize(self.FromDIP(wx.Size(80, -1)))
+        self._tray_icons.SetToolTip(tip)
+        grid.Add(label, 0, wx.ALIGN_CENTER_VERTICAL)
+        grid.Add(self._tray_icons, 0, wx.ALIGN_CENTER_VERTICAL)
 
     def _build_poll_row(self, grid: wx.FlexGridSizer, poll_rate: int) -> None:
         """Append the poll interval spinner, sized for its numbers rather than the row."""
@@ -552,6 +567,7 @@ class _SettingsDialog(wx.Dialog):
         self._update_bands()
         self._battery_icon.SetValue(defaults.battery_icon)
         self._emit_battery_icon_preview()
+        self._tray_icons.SetValue(defaults.tray_icons)
         self._low_battery_notify.SetValue(defaults.low_battery_notify)
         self._notify_high.SetValue(defaults.notify_level_high)
         self._notify_low.SetValue(defaults.notify_level_low)
@@ -609,6 +625,7 @@ class _SettingsDialog(wx.Dialog):
         config.low_color = _rgb(self._low_color)
         config.dynamic_color = self._dynamic_color.GetValue()
         config.battery_icon = self._battery_icon.GetValue()
+        config.tray_icons = self._tray_icons.GetValue()
         config.low_battery_notify = self._low_battery_notify.GetValue()
         high, low = self._notify_high.GetValue(), self._notify_low.GetValue()
         config.notify_level_high, config.notify_level_low = max(high, low), min(high, low)

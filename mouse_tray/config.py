@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 #: Application version, shown in the settings and about dialogs. Single source
 #: for the runtime version (re-exported as ``mouse_tray.__version__``).
-VERSION = "0.2.2"
+VERSION = "0.3.0"
 
 #: Project identity, shown in the about dialog. Kept here with VERSION so the
 #: dialog has a single source for everything it prints about the app itself.
@@ -33,6 +33,9 @@ LOW_THRESHOLD = 20
 TEXT_SIZE_MIN = 50
 TEXT_SIZE_DEFAULT = 100
 TEXT_SIZE_MAX = 100
+
+#: Most devices the tray can show at once, one icon each.
+TRAY_ICONS_MAX = 4
 
 
 @dataclass
@@ -70,6 +73,9 @@ class Config:
         text_outline:     When True, the digits carry a thin contrasting
                           outline so they stay readable on a same-colored
                           taskbar. Turn it off for plain glyphs.
+        tray_icons:       How many devices the tray shows at once, one icon
+                          each, 1-``TRAY_ICONS_MAX``. With 1 the tray behaves
+                          as a single-device indicator.
         app_name:         Storage/identity key -- the registry subkey that holds
                           settings and "last full charge" times, and the log
                           directory name. Kept underscore-form so those paths
@@ -100,6 +106,7 @@ class Config:
     font: str = "consola.ttf"
     text_size: int = TEXT_SIZE_DEFAULT
     text_outline: bool = True
+    tray_icons: int = 1
     app_name: str = "Mouse_Tray"
     display_name: str = "Mouse Tray"
     low_battery_notify: bool = True
